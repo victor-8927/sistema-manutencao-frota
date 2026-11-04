@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../firebase'; // ou o caminho correto para o teu cliente do Supabase/Firebase
+import { supabase } from '../firebase';
 
 export default function LancamentosDiarios() {
   const [veiculos, setVeiculos] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     veiculo: '',
     data: new Date().toISOString().split('T')[0],
@@ -11,27 +12,73 @@ export default function LancamentosDiarios() {
     motorista: ''
   });
 
-  // Buscar os veículos do Supabase ao carregar o componente
+  // Buscar todos os veículos reais diretamente da base de dados do Supabase
   useEffect(() => {
     async function fetchVeiculos() {
       const { data, error } = await supabase.from('veiculos').select('*');
       if (error) {
         console.error('Erro ao buscar veículos:', error);
-      } else if (data) {
+      } else if (data && data.length > 0) {
         setVeiculos(data);
-        if (data.length > 0) {
-          setFormData(prev => ({ ...prev, veiculo: data[0].placa || data[0].codigo }));
-        }
+        // Define o primeiro veículo por defeito
+        const primeiro = data[0];
+        setFormData(prev => ({ 
+          ...prev, 
+          veiculo: primeiro.codigo ? `${primeiro.codigo} ${primeiro.placa && primeiro.placa !== '—' ? `- ${primeiro.placa}` : ''}` : primeiro.placa 
+        }));
       }
     }
     fetchVeiculos();
   }, []);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
+    
+    if (!formData.kmSaida || !formData.kmRetorno) {
+      alert('Por favor, preencha o KM de Saída e o KM de Retorno.');
+      return;
+    }
+
     const kmRodado = Number(formData.kmRetorno) - Number(formData.kmSaida);
-    console.log("Salvando lançamento...", { ...formData, kmRodado });
-    alert(`Lançamento guardado com sucesso! KM Rodado: ${kmRodado} km`);
+    
+    if (kmRodado < 0) {
+      alert('O KM de Retorno não pode ser menor que o KM de Saída.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('lancamentos_diarios')
+        .insert([
+          {
+            veiculo: formData.veiculo,
+            data: formData.data,
+            km_saida: Number(formData.kmSaida),
+            km_retorno: Number(formData.kmRetorno),
+            km_rodado: kmRodado,
+            motorista: formData.motorista
+          }
+        ]);
+
+      if (error) throw error;
+
+      alert(`Lançamento guardado com sucesso! KM Rodado: ${kmRodado} km`);
+      
+      setFormData(prev => ({
+        ...prev,
+        kmSaida: '',
+        kmRetorno: '',
+        motorista: ''
+      }));
+
+    } catch (error) {
+      console.error('Erro ao guardar lançamento:', error.message);
+      alert('Erro ao guardar lançamento no Supabase.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,11 +93,16 @@ export default function LancamentosDiarios() {
             value={formData.veiculo}
             onChange={(e) => setFormData({...formData, veiculo: e.target.value})}
           >
-            {veiculos.map((v, index) => (
-              <option key={index} value={v.codigo || v.placa}>
-                {v.codigo ? `${v.codigo} - ${v.placa || ''}` : v.placa}
-              </option>
-            ))}
+            {veiculos.map((v, index) => {
+              const label = v.codigo 
+                ? `${v.codigo} ${v.placa && v.placa !== '—' ? `- ${v.placa}` : ''}` 
+                : v.placa;
+              return (
+                <option key={index} value={label}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -68,7 +120,7 @@ export default function LancamentosDiarios() {
           <label className="block text-sm font-medium mb-1 text-slate-300">KM de Saída</label>
           <input 
             type="number" 
-            placeholder="Ex: 224917"
+            placeholder="Ex: 229340"
             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
             value={formData.kmSaida}
             onChange={(e) => setFormData({...formData, kmSaida: e.target.value})}
@@ -79,7 +131,7 @@ export default function LancamentosDiarios() {
           <label className="block text-sm font-medium mb-1 text-slate-300">KM de Retorno</label>
           <input 
             type="number" 
-            placeholder="Ex: 225018"
+            placeholder="Ex: 229500"
             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
             value={formData.kmRetorno}
             onChange={(e) => setFormData({...formData, kmRetorno: e.target.value})}
@@ -100,9 +152,10 @@ export default function LancamentosDiarios() {
         <div className="md:col-span-2 flex justify-end">
           <button 
             type="submit" 
-            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded transition-colors shadow-lg"
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded transition-colors shadow-lg disabled:opacity-50"
           >
-            Gravar Lançamento
+            {loading ? 'A gravar...' : 'Gravar Lançamento'}
           </button>
         </div>
       </form>
