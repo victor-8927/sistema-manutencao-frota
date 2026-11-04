@@ -12,7 +12,7 @@ export default function LancamentosDiarios() {
     motorista: ''
   });
 
-  // Buscar todos os veículos reais diretamente da base de dados do Supabase
+  // Busca real de veículos no Supabase
   useEffect(() => {
     async function fetchVeiculos() {
       const { data, error } = await supabase.from('veiculos').select('*');
@@ -20,12 +20,11 @@ export default function LancamentosDiarios() {
         console.error('Erro ao buscar veículos:', error);
       } else if (data && data.length > 0) {
         setVeiculos(data);
-        // Define o primeiro veículo por defeito
         const primeiro = data[0];
-        setFormData(prev => ({ 
-          ...prev, 
-          veiculo: primeiro.codigo ? `${primeiro.codigo} ${primeiro.placa && primeiro.placa !== '—' ? `- ${primeiro.placa}` : ''}` : primeiro.placa 
-        }));
+        const labelInicial = primeiro.codigo 
+          ? `${primeiro.codigo} ${primeiro.placa && primeiro.placa !== '—' ? `- ${primeiro.placa}` : ''}` 
+          : primeiro.placa;
+        setFormData(prev => ({ ...prev, veiculo: labelInicial }));
       }
     }
     fetchVeiculos();
@@ -49,6 +48,7 @@ export default function LancamentosDiarios() {
     setLoading(true);
 
     try {
+      // Inserção real na tabela do Supabase
       const { error } = await supabase
         .from('lancamentos_diarios')
         .insert([
@@ -64,7 +64,7 @@ export default function LancamentosDiarios() {
 
       if (error) throw error;
 
-      alert(`Lançamento guardado com sucesso! KM Rodado: ${kmRodado} km`);
+      alert(`Lançamento guardado com sucesso na nuvem! KM Rodado: ${kmRodado} km`);
       
       setFormData(prev => ({
         ...prev,
@@ -75,7 +75,7 @@ export default function LancamentosDiarios() {
 
     } catch (error) {
       console.error('Erro ao guardar lançamento:', error.message);
-      alert('Erro ao guardar lançamento no Supabase.');
+      alert('Erro ao guardar lançamento no Supabase: ' + error.message);
     } finally {
       setLoading(false);
     }
