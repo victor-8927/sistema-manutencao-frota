@@ -1,20 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../firebase'; // ou o caminho correto para o teu cliente do Supabase/Firebase
 
 export default function LancamentosDiarios() {
+  const [veiculos, setVeiculos] = useState([]);
   const [formData, setFormData] = useState({
-    veiculo: 'VDA 01',
+    veiculo: '',
     data: new Date().toISOString().split('T')[0],
     kmSaida: '',
     kmRetorno: '',
     motorista: ''
   });
 
+  // Buscar os veículos do Supabase ao carregar o componente
+  useEffect(() => {
+    async function fetchVeiculos() {
+      const { data, error } = await supabase.from('veiculos').select('*');
+      if (error) {
+        console.error('Erro ao buscar veículos:', error);
+      } else if (data) {
+        setVeiculos(data);
+        if (data.length > 0) {
+          setFormData(prev => ({ ...prev, veiculo: data[0].placa || data[0].codigo }));
+        }
+      }
+    }
+    fetchVeiculos();
+  }, []);
+
   const handleSave = (e) => {
     e.preventDefault();
     const kmRodado = Number(formData.kmRetorno) - Number(formData.kmSaida);
     console.log("Salvando lançamento...", { ...formData, kmRodado });
     alert(`Lançamento guardado com sucesso! KM Rodado: ${kmRodado} km`);
-    // Aqui depois integramos a chamada direta para a sua tabela no Supabase
   };
 
   return (
@@ -23,16 +40,17 @@ export default function LancamentosDiarios() {
       
       <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-800/50 p-6 rounded-lg border border-slate-700">
         <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">Veículo (VDA)</label>
+          <label className="block text-sm font-medium mb-1 text-slate-300">Veículo (VDA / Placa)</label>
           <select 
             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
             value={formData.veiculo}
             onChange={(e) => setFormData({...formData, veiculo: e.target.value})}
           >
-            <option value="VDA 01">VDA 01 (NOU-8H02)</option>
-            <option value="VDA 20">VDA 20 (PHI-6F40)</option>
-            <option value="VDA 81">VDA 81 (OAL-8193)</option>
-            <option value="VDA 94">VDA 94</option>
+            {veiculos.map((v, index) => (
+              <option key={index} value={v.codigo || v.placa}>
+                {v.codigo ? `${v.codigo} - ${v.placa || ''}` : v.placa}
+              </option>
+            ))}
           </select>
         </div>
 
