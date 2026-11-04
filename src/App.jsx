@@ -1,17 +1,19 @@
 import React, { useState } from 'react'
-import { Truck, Droplets, Radio, Wrench, LayoutDashboard } from 'lucide-react'
+import { Truck, Droplets, Radio, Wrench, LayoutDashboard, FileText } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import ControleOleo from './components/ControleOleo'
 import Tacografo from './components/Tacografo'
 import Manutencoes from './components/Manutencoes'
 import Veiculos from './components/Veiculos'
+import LancamentosDiarios from './components/LancamentosDiarios' // <--- 1. Importado aqui
 
 const TABS = [
-  { id: 'dashboard',   label: 'Dashboard',      icon: LayoutDashboard },
-  { id: 'veiculos',    label: 'Veículos',        icon: Truck },
-  { id: 'oleo',        label: 'Troca de Óleo',   icon: Droplets },
-  { id: 'tacografo',   label: 'Tacógrafo',       icon: Radio },
-  { id: 'manutencoes', label: 'Manutenções',      icon: Wrench },
+  { id: 'dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
+  { id: 'veiculos',     label: 'Veículos',       icon: Truck },
+  { id: 'oleo',         label: 'Troca de Óleo',    icon: Droplets },
+  { id: 'tacografo',    label: 'Tacógrafo',      icon: Radio },
+  { id: 'manutencoes',  label: 'Manutenções',    icon: Wrench },
+  { id: 'lancamentos',  label: 'Lançamentos',    icon: FileText }, // <--- 2. Adicionado na barra de abas
 ]
 
 export default function App() {
@@ -52,11 +54,12 @@ export default function App() {
 
       {/* content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {tab === 'dashboard'   && <Dashboard />}
-        {tab === 'veiculos'    && <Veiculos />}
-        {tab === 'oleo'        && <ControleOleo />}
-        {tab === 'tacografo'   && <Tacografo />}
-        {tab === 'manutencoes' && <Manutencoes />}
+        {tab === 'dashboard'    && <Dashboard />}
+        {tab === 'veiculos'     && <Veiculos />}
+        {tab === 'oleo'         && <ControleOleo />}
+        {tab === 'tacografo'    && <Tacografo />}
+        {tab === 'manutencoes'  && <Manutencoes />}
+        {tab === 'lancamentos'  && <LancamentosDiarios />} {/* <--- 3. Renderizado aqui */}
       </main>
     </div>
   )
