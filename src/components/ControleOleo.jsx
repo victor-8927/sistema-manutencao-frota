@@ -32,7 +32,7 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
     km_ultima_troca:   row?.km_ultima_troca   ?? 0,
     km_atual:          row?.km_atual          ?? 0,
     km_oleo_limite:    row?.km_oleo_limite    ?? 10000,
-    notas:             row?.notas             ?? '',
+    observacao:        row?.observacao        ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -47,12 +47,12 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
       km_ultima_troca:   Number(form.km_ultima_troca),
       km_atual:          Number(form.km_atual),
       km_oleo_limite:    Number(form.km_oleo_limite),
-      notas:             form.notas || null,
-      data_atualizado:   new Date().toISOString(),
+      observacao:        form.observacao || null,
+      data_atualizacao:  new Date().toISOString(),
     }
     const { error } = await (isNew
-      ? supabase.from('controle_oleo').insert(payload)
-      : supabase.from('controle_oleo').update(payload).eq('id', row.id))
+      ? supabase.from('fleet_controle_oleo').insert(payload)
+      : supabase.from('fleet_controle_oleo').update(payload).eq('id', row.id))
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved()
@@ -95,8 +95,8 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Notas</label>
-          <textarea rows={3} value={form.notas} onChange={e => set('notas', e.target.value)}
+          <label className="block text-xs text-gray-400 mb-1">Observação</label>
+          <textarea rows={3} value={form.observacao} onChange={e => set('observacao', e.target.value)}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white resize-none" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -122,8 +122,8 @@ export default function ControleOleo() {
   const load = useCallback(async () => {
     setLoading(true)
     const [{ data: ol }, { data: vei }] = await Promise.all([
-      supabase.from('controle_oleo').select('*, veiculos(id, codigo_vda, placa)').order('data_atualizado', { ascending: false }),
-      supabase.from('veiculos').select('id, codigo_vda, placa').order('codigo_vda'),
+      supabase.from('fleet_controle_oleo').select('*, fleet_veiculos(id, codigo_vda, placa)').order('data_atualizacao', { ascending: false }),
+      supabase.from('fleet_veiculos').select('id, codigo_vda, placa').order('codigo_vda'),
     ])
     setRows(ol || []); setVeiculos(vei || [])
     setLoading(false)
@@ -132,19 +132,19 @@ export default function ControleOleo() {
   useEffect(() => {
     load()
     const ch = supabase.channel('oleo-ch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'controle_oleo' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_controle_oleo' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
 
   async function handleDelete() {
-    await supabase.from('controle_oleo').delete().eq('id', deleteRow.id)
+    await supabase.from('fleet_controle_oleo').delete().eq('id', deleteRow.id)
     setDeleteRow(null); load()
   }
 
   const filtered = rows.filter(r => {
     const q = search.toLowerCase()
-    return !q || r.veiculos?.codigo_vda?.toLowerCase().includes(q) || r.veiculos?.placa?.toLowerCase().includes(q)
+    return !q || r.fleet_veiculos?.codigo_vda?.toLowerCase().includes(q) || r.fleet_veiculos?.placa?.toLowerCase().includes(q)
   })
 
   const semRegistro = veiculos.filter(v => !rows.find(r => r.veiculo_id === v.id))
@@ -209,8 +209,8 @@ export default function ControleOleo() {
                 const saldo = (r.km_oleo_limite || 10000) - rod
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-white">{r.veiculos?.codigo_vda ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.veiculos?.placa ?? '—'}</td>
+                    <td className="px-4 py-3 font-medium text-white">{r.fleet_veiculos?.codigo_vda ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-400">{r.fleet_veiculos?.placa ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtKm(r.km_atual)}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtKm(r.km_ultima_troca)}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtKm(rod)}</td>
@@ -244,7 +244,7 @@ export default function ControleOleo() {
           onClose={() => setModalRow(null)} onSaved={() => { setModalRow(null); load() }} />
       )}
       {deleteRow && (
-        <ConfirmDialog message={`Excluir registro de óleo do veículo ${deleteRow.veiculos?.codigo_vda ?? ''}?`}
+        <ConfirmDialog message={`Excluir registro de óleo do veículo ${deleteRow.fleet_veiculos?.codigo_vda ?? ''}?`}
           onConfirm={handleDelete} onCancel={() => setDeleteRow(null)} />
       )}
     </div>

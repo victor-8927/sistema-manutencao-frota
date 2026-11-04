@@ -6,10 +6,10 @@ import ConfirmDialog from './ConfirmDialog'
 import StatusBadge from './StatusBadge'
 
 function calcStatus(r) {
-  if (!r.data_vencimento) return { label: 'Sem Data', color: 'gray', diasRestantes: null }
+  const dataVenc = r._dataVenc
+  if (!dataVenc) return { label: 'Sem Data', color: 'gray', diasRestantes: null }
   const hoje = new Date()
-  const venc = new Date(r.data_vencimento)
-  const diff = Math.floor((venc - hoje) / (1000 * 60 * 60 * 24))
+  const diff = Math.floor((dataVenc - hoje) / (1000 * 60 * 60 * 24))
   if (diff < 0)  return { label: 'Vencido',          color: 'red',    diasRestantes: diff }
   if (diff < 30) return { label: 'Pronto p/ Aferir', color: 'yellow', diasRestantes: diff }
   return              { label: 'Normal',              color: 'green',  diasRestantes: diff }
@@ -28,6 +28,16 @@ function addDays(dateStr, days) {
   return d.toISOString().split('T')[0]
 }
 
+function withVenc(r) {
+  let _dataVenc = null
+  if (r.data_ultima_afericao && r.validade_dias) {
+    const d = new Date(r.data_ultima_afericao)
+    d.setDate(d.getDate() + Number(r.validade_dias))
+    _dataVenc = d
+  }
+  return { ...r, _dataVenc }
+}
+
 function TacoModal({ row, veiculos, onClose, onSaved }) {
   const isNew = !row?.id
   const [form, setForm] = useState({
@@ -35,21 +45,15 @@ function TacoModal({ row, veiculos, onClose, onSaved }) {
     data_realizacao:      row?.data_realizacao      ?? new Date().toISOString().split('T')[0],
     data_ultima_afericao: row?.data_ultima_afericao ?? new Date().toISOString().split('T')[0],
     validade_dias:        row?.validade_dias        ?? 365,
-    data_vencimento:      row?.data_vencimento      ?? addDays(new Date().toISOString().split('T')[0], 365),
-    notas:                row?.notas                ?? '',
+    observacao:           row?.observacao           ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
-  const set = (k, v) => {
-    setForm(f => {
-      const next = { ...f, [k]: v }
-      if (k === 'data_ultima_afericao' || k === 'validade_dias') {
-        next.data_vencimento = addDays(next.data_ultima_afericao, Number(next.validade_dias) || 0)
-      }
-      return next
-    })
-  }
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // computed vencimento for display only
+  const dataVencimento = addDays(form.data_ultima_afericao, Number(form.validade_dias) || 0)
 
   async function save() {
     if (!form.veiculo_id) { setErr('Selecione um veículo'); return }
@@ -59,12 +63,11 @@ function TacoModal({ row, veiculos, onClose, onSaved }) {
       data_realizacao:      form.data_realizacao      || null,
       data_ultima_afericao: form.data_ultima_afericao || null,
       validade_dias:        Number(form.validade_dias),
-      data_vencimento:      form.data_vencimento      || null,
-      notas:                form.notas                || null,
+      observacao:           form.observacao           || null,
     }
     const { error } = await (isNew
-      ? supabase.from('controle_tacografo').insert(payload)
-      : supabase.from('controle_tacografo').update(payload).eq('id', row.id))
+      ? supabase.from('fleet_controle_tacografo').insert(payload)
+      : supabase.from('fleet_controle_tacografo').update(payload).eq('id', row.id))
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved()
@@ -101,14 +104,14 @@ function TacoModal({ row, veiculos, onClose, onSaved }) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Vencimento (auto-calc.)</label>
-            <input type="date" value={form.data_vencimento} onChange={e => set('data_vencimento', e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+            <label className="block text-xs text-gray-400 mb-1">Vencimento (calculado)</label>
+            <input type="date" value={dataVencimento} readOnly
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 cursor-not-allowed" />
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Notas</label>
-          <textarea rows={3} value={form.notas} onChange={e => set('notas', e.target.value)}
+          <label className="block text-xs text-gray-400 mb-1">Observação</label>
+          <textarea rows={3} value={form.observacao} onChange={e => set('observacao', e.target.value)}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white resize-none" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -134,29 +137,29 @@ export default function Tacografo() {
   const load = useCallback(async () => {
     setLoading(true)
     const [{ data: tc }, { data: vei }] = await Promise.all([
-      supabase.from('controle_tacografo').select('*, veiculos(id, codigo_vda, placa)').order('data_vencimento', { ascending: true }),
-      supabase.from('veiculos').select('id, codigo_vda, placa').order('codigo_vda'),
+      supabase.from('fleet_controle_tacografo').select('*, fleet_veiculos(id, codigo_vda, placa)').order('data_ultima_afericao', { ascending: true }),
+      supabase.from('fleet_veiculos').select('id, codigo_vda, placa').order('codigo_vda'),
     ])
-    setRows(tc || []); setVeiculos(vei || [])
+    setRows((tc || []).map(withVenc)); setVeiculos(vei || [])
     setLoading(false)
   }, [])
 
   useEffect(() => {
     load()
     const ch = supabase.channel('taco-ch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'controle_tacografo' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_controle_tacografo' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
 
   async function handleDelete() {
-    await supabase.from('controle_tacografo').delete().eq('id', deleteRow.id)
+    await supabase.from('fleet_controle_tacografo').delete().eq('id', deleteRow.id)
     setDeleteRow(null); load()
   }
 
   const filtered = rows.filter(r => {
     const q = search.toLowerCase()
-    return !q || r.veiculos?.codigo_vda?.toLowerCase().includes(q) || r.veiculos?.placa?.toLowerCase().includes(q)
+    return !q || r.fleet_veiculos?.codigo_vda?.toLowerCase().includes(q) || r.fleet_veiculos?.placa?.toLowerCase().includes(q)
   })
 
   const semRegistro = veiculos.filter(v => !rows.find(r => r.veiculo_id === v.id))
@@ -221,14 +224,15 @@ export default function Tacografo() {
                   : st.diasRestantes < 0  ? 'text-red-400 font-medium'
                   : st.diasRestantes < 30 ? 'text-yellow-400 font-medium'
                   : 'text-gray-300'
+                const vencStr = r._dataVenc ? r._dataVenc.toISOString().split('T')[0] : null
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-white">{r.veiculos?.codigo_vda ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.veiculos?.placa ?? '—'}</td>
+                    <td className="px-4 py-3 font-medium text-white">{r.fleet_veiculos?.codigo_vda ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-400">{r.fleet_veiculos?.placa ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtDate(r.data_realizacao)}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtDate(r.data_ultima_afericao)}</td>
                     <td className="px-4 py-3 text-gray-400">{r.validade_dias ?? '—'} dias</td>
-                    <td className="px-4 py-3 text-gray-300">{fmtDate(r.data_vencimento)}</td>
+                    <td className="px-4 py-3 text-gray-300">{fmtDate(vencStr)}</td>
                     <td className={`px-4 py-3 ${diasCls}`}>
                       {st.diasRestantes === null ? '—'
                         : st.diasRestantes < 0 ? `${Math.abs(st.diasRestantes)}d vencido`
@@ -256,7 +260,7 @@ export default function Tacografo() {
           onClose={() => setModalRow(null)} onSaved={() => { setModalRow(null); load() }} />
       )}
       {deleteRow && (
-        <ConfirmDialog message={`Excluir registro de tacógrafo do veículo ${deleteRow.veiculos?.codigo_vda ?? ''}?`}
+        <ConfirmDialog message={`Excluir registro de tacógrafo do veículo ${deleteRow.fleet_veiculos?.codigo_vda ?? ''}?`}
           onConfirm={handleDelete} onCancel={() => setDeleteRow(null)} />
       )}
     </div>
