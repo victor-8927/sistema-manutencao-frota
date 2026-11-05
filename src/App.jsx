@@ -1,6 +1,10 @@
 import React from 'react';
-import LancamentoMobile from './components/LancamentoMobile';
+import Dashboard from './components/Dashboard'; // O teu painel web de gestão principal
 
 export default function App() {
-  return <LancamentoMobile />;
+  return (
+    <div>
+      <Dashboard />
+    </div>
+  );
 }
