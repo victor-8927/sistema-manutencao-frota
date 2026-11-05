@@ -77,11 +77,13 @@ export default function Dashboard() {
     const tacoProximo = tacoAlerts.filter(r => r._dataVenc >= hoje)
 
     // --- Manutenções por status (fleet_manutencoes usa status_realizacao) ---
-    const statusList = ['Aberta', 'Em Andamento', 'Cancelada']
-    const CONCLUIDA = 'Concluída'
-    const allStatus = [...statusList, CONCLUIDA]
+    // Valores reais do banco: 'REALIZADO', 'PENDENTE', 'PRIORIDADE ALTA CURTA DE 1 Á 5 DIAS', null
+    const STATUS_CONCLUIDO  = 'REALIZADO'
+    const STATUS_PENDENTE   = 'PENDENTE'
+    const STATUS_PRIORIDADE = 'PRIORIDADE ALTA CURTA DE 1 Á 5 DIAS'
+    const allStatus = [STATUS_PENDENTE, STATUS_PRIORIDADE, STATUS_CONCLUIDO]
     const manPorStatus = allStatus.map(s => ({
-      name: s,
+      name: s === STATUS_CONCLUIDO ? 'Realizado' : s === STATUS_PENDENTE ? 'Pendente' : 'Prioridade Alta',
       value: (man || []).filter(r => r.status_realizacao === s).length,
     }))
 
@@ -110,12 +112,12 @@ export default function Dashboard() {
     }
     const manCustoTipo = Object.entries(custoTipo).map(([name, custo]) => ({ name, custo }))
 
-    const manAbertas   = (man || []).filter(r => r.status_realizacao === 'Aberta').length
-    const manAndamento = (man || []).filter(r => r.status_realizacao === 'Em Andamento').length
+    const manAbertas   = (man || []).filter(r => r.status_realizacao === STATUS_PENDENTE || r.status_realizacao === STATUS_PRIORIDADE).length
+    const manAndamento = (man || []).filter(r => r.status_realizacao === STATUS_PRIORIDADE).length
 
     setData({
       totalVeiculos: (veiculos || []).length,
-      veiculosAtivos: (veiculos || []).filter(v => v.ativo === true).length,
+      veiculosAtivos: (veiculos || []).filter(v => v.status_operacional === 'Ativo').length,
       oleoAlerts: oleoAlerts.length,
       tacoAlerts: tacoAlerts.length,
       manAbertas,
@@ -142,7 +144,7 @@ export default function Dashboard() {
 
   const totalAlertas = data.oleoAlerts + data.tacoAlerts
 
-  const CONCLUIDA_STATUS = 'Concluída'
+  const CONCLUIDA_STATUS = 'REALIZADO'
 
   return (
     <div className="space-y-6">
@@ -255,8 +257,8 @@ export default function Dashboard() {
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
                         r.status_realizacao === CONCLUIDA_STATUS ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                        : r.status_realizacao === 'Aberta'       ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                        : r.status_realizacao === 'Em Andamento' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+                        : r.status_realizacao === 'PENDENTE'                             ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                        : r.status_realizacao === 'PRIORIDADE ALTA CURTA DE 1 Á 5 DIAS' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
                         : 'bg-gray-500/15 text-gray-400 border-gray-500/30'
                       }`}>{r.status_realizacao ?? '—'}</span>
                     </td>
