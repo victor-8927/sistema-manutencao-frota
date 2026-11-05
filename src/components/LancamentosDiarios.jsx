@@ -1,164 +1,121 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../firebase';
+import { supabase } from '../firebase'; // Ajusta o caminho do supabase se necessário
 
 export default function LancamentosDiarios() {
-  const [veiculos, setVeiculos] = useState([]);
+  const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    veiculo: '',
-    data: new Date().toISOString().split('T')[0],
-    kmSaida: '',
-    kmRetorno: '',
-    motorista: ''
-  });
 
-  // Busca real de veículos no Supabase
-  useEffect(() => {
-    async function fetchVeiculos() {
-      const { data, error } = await supabase.from('veiculos').select('*');
-      if (error) {
-        console.error('Erro ao buscar veículos:', error);
-      } else if (data && data.length > 0) {
-        setVeiculos(data);
-        const primeiro = data[0];
-        const labelInicial = primeiro.codigo 
-          ? `${primeiro.codigo} ${primeiro.placa && primeiro.placa !== '—' ? `- ${primeiro.placa}` : ''}` 
-          : primeiro.placa;
-        setFormData(prev => ({ ...prev, veiculo: labelInicial }));
-      }
+  const buscarPendentes = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('lancamentos_diarios')
+      .select('*')
+      .eq('status', 'pendente')
+      .order('data', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar lançamentos pendentes:', error);
+    } else {
+      setPendentes(data || []);
     }
-    fetchVeiculos();
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    buscarPendentes();
   }, []);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.kmSaida || !formData.kmRetorno) {
-      alert('Por favor, preencha o KM de Saída e o KM de Retorno.');
-      return;
+  const aprovarLancamento = async (id) => {
+    const { error } = await supabase
+      .from('lancamentos_diarios')
+      .update({ status: 'aprovado' })
+      .eq('id', id);
+
+    if (error) {
+      alert('Erro ao aprovar lançamento: ' + error.message);
+    } else {
+      alert('✅ Lançamento aprovado com sucesso!');
+      buscarPendentes();
     }
+  };
 
-    const kmRodado = Number(formData.kmRetorno) - Number(formData.kmSaida);
-    
-    if (kmRodado < 0) {
-      alert('O KM de Retorno não pode ser menor que o KM de Saída.');
-      return;
-    }
+  const rejeitarLancamento = async (id) => {
+    if (!window.confirm('Tens a certeza que queres rejeitar e eliminar este registo?')) return;
 
-    setLoading(true);
+    const { error } = await supabase
+      .from('lancamentos_diarios')
+      .delete()
+      .eq('id', id);
 
-    try {
-      // Inserção real na tabela do Supabase
-      const { error } = await supabase
-        .from('lancamentos_diarios')
-        .insert([
-          {
-            veiculo: formData.veiculo,
-            data: formData.data,
-            km_saida: Number(formData.kmSaida),
-            km_retorno: Number(formData.kmRetorno),
-            km_rodado: kmRodado,
-            motorista: formData.motorista
-          }
-        ]);
-
-      if (error) throw error;
-
-      alert(`Lançamento guardado com sucesso na nuvem! KM Rodado: ${kmRodado} km`);
-      
-      setFormData(prev => ({
-        ...prev,
-        kmSaida: '',
-        kmRetorno: '',
-        motorista: ''
-      }));
-
-    } catch (error) {
-      console.error('Erro ao guardar lançamento:', error.message);
-      alert('Erro ao guardar lançamento no Supabase: ' + error.message);
-    } finally {
-      setLoading(false);
+    if (error) {
+      alert('Erro ao rejeitar: ' + error.message);
+    } else {
+      alert('🗑️ Lançamento rejeitado e removido.');
+      buscarPendentes();
     }
   };
 
   return (
-    <div className="p-6 bg-slate-900 text-slate-100 min-h-screen rounded-xl border border-slate-800">
-      <h2 className="text-xl font-bold mb-4 text-blue-400">Novo Lançamento Diário de Pátio</h2>
-      
-      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">Veículo (VDA / Placa)</label>
-          <select 
-            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
-            value={formData.veiculo}
-            onChange={(e) => setFormData({...formData, veiculo: e.target.value})}
-          >
-            {veiculos.map((v, index) => {
-              const label = v.codigo 
-                ? `${v.codigo} ${v.placa && v.placa !== '—' ? `- ${v.placa}` : ''}` 
-                : v.placa;
-              return (
-                <option key={index} value={label}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">Data</label>
-          <input 
-            type="date" 
-            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
-            value={formData.data}
-            onChange={(e) => setFormData({...formData, data: e.target.value})}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">KM de Saída</label>
-          <input 
-            type="number" 
-            placeholder="Ex: 229340"
-            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
-            value={formData.kmSaida}
-            onChange={(e) => setFormData({...formData, kmSaida: e.target.value})}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1 text-slate-300">KM de Retorno</label>
-          <input 
-            type="number" 
-            placeholder="Ex: 229500"
-            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
-            value={formData.kmRetorno}
-            onChange={(e) => setFormData({...formData, kmRetorno: e.target.value})}
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium mb-1 text-slate-300">Motorista</label>
-          <input 
-            type="text" 
-            placeholder="Nome do motorista (ex: Maicon)"
-            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-100 focus:outline-none focus:border-blue-500"
-            value={formData.motorista}
-            onChange={(e) => setFormData({...formData, motorista: e.target.value})}
-          />
-        </div>
-
-        <div className="md:col-span-2 flex justify-end">
+    <div className="p-4 bg-slate-950 text-slate-100 min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h1 className="text-base font-bold text-blue-400">Validação de Lançamentos de Campo (PWA)</h1>
+            <p className="text-[11px] text-slate-400">Analise e aprove os registos enviados pelos motoristas via telemóvel.</p>
+          </div>
           <button 
-            type="submit" 
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded transition-colors shadow-lg disabled:opacity-50"
+            onClick={buscarPendentes}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5"
           >
-            {loading ? 'A gravar...' : 'Gravar Lançamento'}
+            🔄 Atualizar Fila
           </button>
         </div>
-      </form>
+
+        {loading ? (
+          <p className="text-center text-slate-500 py-12 text-xs">A carregar lançamentos pendentes...</p>
+        ) : pendentes.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-10 text-center text-slate-400 text-xs">
+            ✅ Não há lançamentos pendentes de aprovação no momento. Todos os registos do campo foram validados.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {pendentes.map((item) => (
+              <div key={item.id} className="bg-slate-900 border border-slate-800 p-3.5 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-white text-xs bg-slate-800 px-2 py-0.5 rounded border border-slate-700">{item.veiculo}</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-medium">Pendente de Aprovação</span>
+                    <span className="text-[11px] text-slate-400">📅 {item.data}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Motorista: <strong className="text-blue-300">{item.motorista}</strong> | 
+                    Controlo: <span className="uppercase font-semibold text-slate-200">{item.tipo_controle}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Início: {item.valor_inicial} | Final: {item.valor_final} | 
+                    <strong className="text-emerald-400 ml-1">Total: {item.total_recorrido} {item.tipo_controle === 'km' ? 'km' : 'horas'}</strong>
+                  </p>
+                </div>
+
+                <div className="flex gap-2 w-full md:w-auto">
+                  <button 
+                    onClick={() => aprovarLancamento(item.id)}
+                    className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded text-xs transition-colors shadow"
+                  >
+                    ✔️ Aprovar
+                  </button>
+                  <button 
+                    onClick={() => rejeitarLancamento(item.id)}
+                    className="flex-1 md:flex-none bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded text-xs border border-rose-500/30 transition-colors"
+                  >
+                    ❌ Rejeitar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
