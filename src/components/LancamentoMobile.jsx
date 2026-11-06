@@ -2,10 +2,22 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const MOTIVOS = ['Rota', 'Evento', 'Oficina', 'Serv. Externo']
+const LS_KEY = 'pwa_rota_ativa'
+
+function getRotaAtiva() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null') } catch { return null }
+}
+function salvarRotaAtiva(data) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)) } catch {}
+}
+function limparRotaAtiva() {
+  try { localStorage.removeItem(LS_KEY) } catch {}
+}
 
 export default function LancamentoMobile() {
   const [tela, setTela] = useState('home') // home | saida | retorno
   const [veiculos, setVeiculos] = useState([])
+  const [motoristas, setMotoristas] = useState([])
   const [emRota, setEmRota] = useState([])
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState(null) // { tipo: 'ok'|'erro', texto }
@@ -22,10 +34,28 @@ export default function LancamentoMobile() {
     km_retorno: '', horimetro_retorno: ''
   })
 
+  // Rota ativa salva no localStorage deste celular
+  const [rotaAtiva, setRotaAtiva] = useState(getRotaAtiva)
+
   useEffect(() => {
     carregarVeiculos()
+    carregarMotoristas()
     carregarEmRota()
   }, [])
+
+  // Quando entra na tela de retorno, pré-seleciona se há rota ativa de Rota
+  useEffect(() => {
+    if (tela === 'retorno' && rotaAtiva) {
+      const lanc = emRota.find(l => l.id === rotaAtiva.lancamento_id)
+      if (lanc) {
+        setRetorno(r => ({
+          ...r,
+          lancamento_id: rotaAtiva.lancamento_id,
+          motorista_retorno: rotaAtiva.motorista
+        }))
+      }
+    }
+  }, [tela, emRota, rotaAtiva])
 
   async function carregarVeiculos() {
     const { data } = await supabase
@@ -37,23 +67,22 @@ export default function LancamentoMobile() {
     setVeiculos(data || [])
   }
 
+  async function carregarMotoristas() {
+    const { data } = await supabase
+      .from('fleet_motoristas')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('nome')
+    setMotoristas(data || [])
+  }
+
   async function carregarEmRota() {
-    const hoje = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
       .from('lancamentos_diarios')
-      .select('id, veiculo, motorista, motivo, km_saida, hora_saida, tipo_controle')
+      .select('id, veiculo, motorista, motivo, km_saida, hora_saida, tipo_controle, valor_inicial')
       .eq('status', 'em_rota')
       .order('hora_saida', { ascending: false })
     setEmRota(data || [])
-  }
-
-  function isVDA94(id) {
-    const v = veiculos.find(v => v.id === id)
-    return v?.tipo_controle === 'horimetro' || v?.codigo_vda?.includes('94')
-  }
-
-  function labelVeiculo(v) {
-    return `${v.codigo_vda} — ${v.placa}`
   }
 
   function showMsg(tipo, texto) {
@@ -94,12 +123,27 @@ export default function LancamentoMobile() {
       updated_at: agora
     }
 
-    const { error } = await supabase.from('lancamentos_diarios').insert([payload])
+    const { data: inserted, error } = await supabase
+      .from('lancamentos_diarios')
+      .insert([payload])
+      .select('id')
+      .single()
+
     setLoading(false)
 
     if (error) {
       showMsg('erro', 'Erro ao registrar saída: ' + error.message)
     } else {
+      // Se for Rota, salvar no localStorage deste celular
+      if (saida.motivo === 'Rota' && inserted?.id) {
+        const ativa = {
+          lancamento_id: inserted.id,
+          motorista: saida.motorista,
+          veiculo: veiculo.codigo_vda
+        }
+        salvarRotaAtiva(ativa)
+        setRotaAtiva(ativa)
+      }
       showMsg('ok', `Saída registrada! ${veiculo.codigo_vda} em rota.`)
       setSaida({ motorista: '', veiculo_id: '', motivo: 'Rota', km_saida: '', horimetro_saida: '' })
       carregarEmRota()
@@ -142,7 +186,6 @@ export default function LancamentoMobile() {
       updates.total_recorrido = Math.abs(hS - hR)
     }
 
-    // remove undefined
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
 
     const { error } = await supabase
@@ -155,6 +198,11 @@ export default function LancamentoMobile() {
     if (error) {
       showMsg('erro', 'Erro ao registrar retorno: ' + error.message)
     } else {
+      // Limpar rota ativa se era a rota deste celular
+      if (rotaAtiva?.lancamento_id === retorno.lancamento_id) {
+        limparRotaAtiva()
+        setRotaAtiva(null)
+      }
       showMsg('ok', 'Retorno registrado! Aguardando aprovação.')
       setRetorno({ lancamento_id: '', motorista_retorno: '', km_retorno: '', horimetro_retorno: '' })
       carregarEmRota()
@@ -164,6 +212,9 @@ export default function LancamentoMobile() {
 
   const lancSelecionado = emRota.find(l => l.id === retorno.lancamento_id)
   const usaHorimetroRetorno = lancSelecionado?.tipo_controle === 'horimetro'
+
+  // Retorno é de Rota deste celular? → pré-selecionado, sem dropdown
+  const retornoAutomatico = rotaAtiva && lancSelecionado && lancSelecionado.id === rotaAtiva.lancamento_id
 
   return (
     <div style={{
@@ -204,6 +255,20 @@ export default function LancamentoMobile() {
               {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
             </div>
           </div>
+
+          {/* Alerta: rota ativa neste celular */}
+          {rotaAtiva && (
+            <div style={{
+              background: '#1a2e1a', border: '1px solid #16a34a',
+              borderRadius: 10, padding: 14, marginBottom: 16
+            }}>
+              <div style={{ fontSize: 12, color: '#4ade80', fontWeight: 700, marginBottom: 4 }}>
+                📱 SAÍDA REGISTRADA NESTE CELULAR
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600 }} translate="no">{rotaAtiva.veiculo}</div>
+              <div style={{ fontSize: 12, color: '#86efac' }}>{rotaAtiva.motorista} · Rota</div>
+            </div>
+          )}
 
           {/* Veículos em rota */}
           {emRota.length > 0 && (
@@ -298,12 +363,17 @@ export default function LancamentoMobile() {
             </div>
           </div>
 
-          {/* Motorista */}
+          {/* Motorista — dropdown da tabela */}
           <div style={{ marginBottom: 16 }}>
             <label style={lblStyle}>MOTORISTA</label>
-            <input style={inputStyle} placeholder="Nome do motorista"
+            <select style={inputStyle}
               value={saida.motorista}
-              onChange={e => setSaida(s => ({ ...s, motorista: e.target.value }))} />
+              onChange={e => setSaida(s => ({ ...s, motorista: e.target.value }))}>
+              <option value="">Selecione o motorista</option>
+              {motoristas.map(m => (
+                <option key={m.id} value={m.nome}>{m.nome}</option>
+              ))}
+            </select>
           </div>
 
           {/* Veículo */}
@@ -377,22 +447,48 @@ export default function LancamentoMobile() {
             </div>
           ) : (
             <>
-              {/* Selecionar veículo em rota */}
+              {/* Card fixo se rota ativa deste celular, dropdown se não */}
               <div style={{ marginBottom: 16 }}>
                 <label style={lblStyle}>VEÍCULO RETORNANDO</label>
-                <select style={inputStyle}
-                  value={retorno.lancamento_id}
-                  onChange={e => setRetorno(r => ({ ...r, lancamento_id: e.target.value }))}>
-                  <option value="">Selecione o veículo</option>
-                  {emRota.map(l => (
-                    <option key={l.id} value={l.id}>
-                      {l.veiculo} — {l.motorista} ({l.motivo})
-                    </option>
-                  ))}
-                </select>
+
+                {retornoAutomatico ? (
+                  /* Pré-selecionado — rota registrada neste celular */
+                  <div style={{
+                    background: '#1a2e1a', border: '2px solid #16a34a',
+                    borderRadius: 8, padding: '14px 16px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#4ade80' }} translate="no">
+                        {rotaAtiva.veiculo}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#86efac', marginTop: 2 }}>
+                        📱 Saída registrada neste celular
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: 10, background: '#16a34a', color: '#fff',
+                      padding: '3px 10px', borderRadius: 20, fontWeight: 700
+                    }}>
+                      ✓ AUTO
+                    </div>
+                  </div>
+                ) : (
+                  /* Dropdown manual — Evento/Oficina/Externo ou celular diferente */
+                  <select style={inputStyle}
+                    value={retorno.lancamento_id}
+                    onChange={e => setRetorno(r => ({ ...r, lancamento_id: e.target.value }))}>
+                    <option value="">Selecione o veículo</option>
+                    {emRota.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.veiculo} — {l.motorista} ({l.motivo})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
-              {/* Info do lançamento selecionado */}
+              {/* Info saída */}
               {lancSelecionado && (
                 <div style={{
                   background: '#1e293b', border: '1px solid #334155',
@@ -412,9 +508,25 @@ export default function LancamentoMobile() {
               {/* Motorista retorno */}
               <div style={{ marginBottom: 16 }}>
                 <label style={lblStyle}>MOTORISTA DO RETORNO</label>
-                <input style={inputStyle} placeholder="Quem está trazendo o veículo?"
-                  value={retorno.motorista_retorno}
-                  onChange={e => setRetorno(r => ({ ...r, motorista_retorno: e.target.value }))} />
+                {retornoAutomatico ? (
+                  /* Pré-preenchido e bloqueado */
+                  <div style={{
+                    ...inputStyle,
+                    color: '#86efac', background: '#0f1f0f',
+                    borderColor: '#16a34a', display: 'flex', alignItems: 'center'
+                  }}>
+                    {rotaAtiva.motorista}
+                  </div>
+                ) : (
+                  <select style={inputStyle}
+                    value={retorno.motorista_retorno}
+                    onChange={e => setRetorno(r => ({ ...r, motorista_retorno: e.target.value }))}>
+                    <option value="">Selecione o motorista</option>
+                    {motoristas.map(m => (
+                      <option key={m.id} value={m.nome}>{m.nome}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* KM Retorno */}
