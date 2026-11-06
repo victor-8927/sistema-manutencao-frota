@@ -294,35 +294,31 @@ export default function LancamentosDiarios() {
             );
           })}
 
-          {/* Veículos SEM registro no dia */}
-          {semRegistro.map(item => (
-            <div key={`sr-${item.veiculo}`}
-              className="bg-slate-900/40 border border-slate-800/50 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 opacity-70">
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="font-bold text-slate-400 text-sm bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50" translate="no">
-                    {item.veiculo}
-                  </span>
-                  <span className={`text-xs px-2 py-0.5 rounded border font-medium ${STATUS_BADGE.sem_registro.cls}`}>
-                    Sem Registro
-                  </span>
-                  {item.placa && (
-                    <span className="text-xs text-slate-600">{item.placa}</span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  🛣 KM atual:{' '}
-                  <span className="text-slate-500">
-                    {item.km_atual ? Number(item.km_atual).toLocaleString('pt-BR') + ' km' : '—'}
-                  </span>
-                  {' · '}0 km percorridos registrados
-                </p>
-              </div>
-              <div className="shrink-0">
-                <Minus size={18} className="text-slate-700" />
+          {/* Veículos SEM registro — grid compacto */}
+          {semRegistro.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-600 uppercase tracking-widest font-semibold mb-2 mt-1">
+                Sem registro hoje — {semRegistro.length} veículo{semRegistro.length > 1 ? 's' : ''}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                {semRegistro.map(item => (
+                  <div key={`sr-${item.veiculo}`}
+                    className="bg-slate-900/50 border border-slate-800/60 rounded-lg px-3 py-2.5 flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-300 text-sm leading-none" translate="no">{item.veiculo}</span>
+                      <Minus size={12} className="text-slate-700 shrink-0" />
+                    </div>
+                    {item.placa && (
+                      <span className="text-xs text-slate-600 leading-none">{item.placa}</span>
+                    )}
+                    <span className="text-xs text-slate-600 leading-none">
+                      {item.km_atual ? Number(item.km_atual).toLocaleString('pt-BR') + ' km' : 'KM —'}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
 
           {lancamentos.length === 0 && semRegistro.length === 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center text-slate-400 text-sm">
