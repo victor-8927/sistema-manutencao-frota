@@ -175,8 +175,10 @@ export default function Veiculos() {
     return () => supabase.removeChannel(ch)
   }, [load])
 
-  const ativos = rows.filter(r => r.status_operacional === 'Ativo')
-  const inativos = rows.filter(r => r.status_operacional !== 'Ativo')
+  const ativosReais = rows.filter(r => r.status_operacional === 'Ativo')
+  const emManutencao = rows.filter(r => r.status_operacional === 'Manutenção')
+  const ativos = rows.filter(r => r.status_operacional === 'Ativo' || r.status_operacional === 'Manutenção')
+  const inativos = rows.filter(r => r.status_operacional === 'Inativo')
 
   const fonte = abaAtiva === 'ativos' ? ativos : inativos
   const filtered = fonte.filter(r => {
@@ -214,11 +216,12 @@ export default function Veiculos() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Frota total',    value: rows.length,    color: 'text-blue-400' },
-          { label: 'Ativos',         value: ativos.length,  color: 'text-emerald-400' },
-          { label: 'Inativos/Homem', value: inativos.length, color: 'text-yellow-400' },
+          { label: 'Frota total',    value: rows.length,          color: 'text-blue-400' },
+          { label: 'Ativos',         value: ativosReais.length,   color: 'text-emerald-400' },
+          { label: 'Em Manutenção',  value: emManutencao.length,  color: 'text-yellow-400' },
+          { label: 'Inativos',       value: inativos.length,      color: 'text-gray-400' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3">
             <Truck size={20} className={color} />
