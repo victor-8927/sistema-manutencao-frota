@@ -63,13 +63,15 @@ export default function LancamentosDiarios() {
       .select('veiculo_id, fleet_veiculos(id, codigo_vda, placa, km_atual, status_operacional, motivo_manutencao)');
     setVeiculosFrota(frota || []);
 
-    // Veículos em manutenção / inativos
-    const { data: manut } = await supabase
-      .from('fleet_veiculos')
-      .select('id, codigo_vda, placa, km_atual, status_operacional, motivo_manutencao, observacao_manutencao')
-      .neq('status_operacional', 'Ativo')
-      .eq('ativo', true);
-    setEmManutencao(manut || []);
+    // Veículos em manutenção — só os da frota operacional (fleet_controle_oleo)
+    const { data: manutRaw } = await supabase
+      .from('fleet_controle_oleo')
+      .select('veiculo_id, fleet_veiculos(id, codigo_vda, placa, km_atual, status_operacional, motivo_manutencao, observacao_manutencao)')
+      .neq('fleet_veiculos.status_operacional', 'Ativo');
+    const manut = (manutRaw || [])
+      .map(r => r.fleet_veiculos)
+      .filter(v => v && v.status_operacional && v.status_operacional !== 'Ativo');
+    setEmManutencao(manut);
 
     // Lançamentos com filtros (excluindo em_rota)
     let q = supabase
