@@ -213,9 +213,9 @@ function StatusDiarioModal({ row, onClose, onSaved }) {
         <p className="text-xs text-gray-500">{row.placa && `Placa: ${row.placa} · `}{row.descricao}</p>
         <div>
           <label className="block text-xs text-gray-400 mb-2">Status para Amanhã</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2" translate="no">
             {STATUS_DIA_OPTS.map(opt => (
-              <button key={opt} onClick={() => setStatusDia(opt)}
+              <button key={opt} onClick={() => setStatusDia(opt)} translate="no"
                 className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
                   statusDia === opt
                     ? 'bg-gray-700 border-blue-500 ' + colorMap[opt]
