@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, CheckCircle, XCircle, Navigation } from 'lucide-react';
+import { RefreshCw, CheckCircle, XCircle, Navigation, Minus } from 'lucide-react';
 
 const STATUS_BADGE = {
-  pendente:  { label: 'Pendente',  cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-  aprovado:  { label: 'Aprovado',  cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-  rejeitado: { label: 'Rejeitado', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
-  em_rota:   { label: 'Em Rota',   cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  pendente:     { label: 'Pendente',     cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  aprovado:     { label: 'Aprovado',     cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  rejeitado:    { label: 'Rejeitado',    cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+  em_rota:      { label: 'Em Rota',      cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  sem_registro: { label: 'Sem Registro', cls: 'bg-slate-700/50 text-slate-400 border-slate-600/50' },
 };
 
 function fmtHora(ts) {
@@ -20,6 +21,7 @@ export default function LancamentosDiarios() {
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [lancamentos, setLancamentos] = useState([]);
   const [emRota, setEmRota] = useState([]);
+  const [veiculosFrota, setVeiculosFrota] = useState([]); // veículos do Óleo/Tacógrafo
   const [loading, setLoading] = useState(false);
 
   const buscar = async () => {
@@ -33,7 +35,14 @@ export default function LancamentosDiarios() {
       .order('hora_saida', { ascending: false });
     setEmRota(rota || []);
 
-    // Lançamentos com filtros
+    // Veículos da frota operacional = os que têm registro em fleet_controle_oleo
+    // (mesmo conjunto do Óleo e Tacógrafos — exclui containers, Virtus, Gerência)
+    const { data: frota } = await supabase
+      .from('fleet_controle_oleo')
+      .select('veiculo_id, fleet_veiculos(id, codigo_vda, placa, km_atual)');
+    setVeiculosFrota(frota || []);
+
+    // Lançamentos com filtros (excluindo em_rota)
     let q = supabase
       .from('lancamentos_diarios')
       .select('*')
@@ -52,7 +61,6 @@ export default function LancamentosDiarios() {
   useEffect(() => { buscar(); }, [filtroData, filtroStatus]);
 
   const aprovar = async (id) => {
-    // busca o lançamento para pegar veiculo e km_retorno
     const lanc = lancamentos.find(l => l.id === id);
 
     const { error } = await supabase
@@ -61,9 +69,7 @@ export default function LancamentosDiarios() {
       .eq('id', id);
     if (error) { alert('Erro: ' + error.message); return; }
 
-    // atualiza km_atual em fleet_veiculos se tiver km_retorno
     if (lanc?.km_retorno && lanc?.veiculo) {
-      // busca id do veículo pelo codigo_vda
       const { data: vei } = await supabase
         .from('fleet_veiculos')
         .select('id')
@@ -72,12 +78,8 @@ export default function LancamentosDiarios() {
       if (vei?.id) {
         await supabase
           .from('fleet_veiculos')
-          .update({
-            km_atual: lanc.km_retorno,
-            km_atualizado_em: new Date().toISOString()
-          })
+          .update({ km_atual: lanc.km_retorno, km_atualizado_em: new Date().toISOString() })
           .eq('id', vei.id);
-        // atualiza também fleet_controle_oleo se existir registro
         await supabase
           .from('fleet_controle_oleo')
           .update({ km_atual: lanc.km_retorno, data_atualizacao: new Date().toISOString() })
@@ -97,11 +99,27 @@ export default function LancamentosDiarios() {
     buscar();
   };
 
+  // Monta lista completa: lançamentos do dia + veículos sem registro
+  const emRotaIds = new Set(emRota.map(r => r.veiculo));
+  const lancVeiculos = new Set(lancamentos.map(l => l.veiculo));
+
+  // Veículos da frota sem lançamento no dia e não em rota
+  const semRegistro = filtroStatus === 'todos' || filtroStatus === 'sem_registro'
+    ? veiculosFrota
+        .filter(f => {
+          const cod = f.fleet_veiculos?.codigo_vda;
+          return cod && !lancVeiculos.has(cod) && !emRotaIds.has(cod);
+        })
+        .map(f => ({ _semRegistro: true, veiculo: f.fleet_veiculos?.codigo_vda, placa: f.fleet_veiculos?.placa, km_atual: f.fleet_veiculos?.km_atual }))
+    : [];
+
   const totalKm = lancamentos
     .filter(l => l.status === 'aprovado')
     .reduce((acc, l) => acc + Number(l.total_recorrido || 0), 0);
 
   const pendentes = lancamentos.filter(l => l.status === 'pendente').length;
+  const totalFrota = veiculosFrota.length;
+  const comRegistro = lancamentos.length + emRota.length;
 
   return (
     <div className="space-y-4">
@@ -109,7 +127,9 @@ export default function LancamentosDiarios() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-white">KM Diário — Validação</h2>
-          <p className="text-xs text-slate-400">Lançamentos enviados pelos motoristas via PWA</p>
+          <p className="text-xs text-slate-400">
+            Status da frota operacional · {comRegistro}/{totalFrota} veículos com registro
+          </p>
         </div>
         <button onClick={buscar}
           className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
@@ -150,7 +170,7 @@ export default function LancamentosDiarios() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="text-xs text-slate-400 mb-1">Pendentes</div>
           <div className="text-2xl font-black text-amber-400">{pendentes}</div>
@@ -162,6 +182,10 @@ export default function LancamentosDiarios() {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="text-xs text-slate-400 mb-1">Lançamentos</div>
           <div className="text-2xl font-black text-blue-400">{lancamentos.length}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Sem Registro</div>
+          <div className="text-2xl font-black text-slate-500">{semRegistro.length + (filtroStatus === 'todos' ? 0 : 0)}</div>
         </div>
       </div>
 
@@ -191,17 +215,12 @@ export default function LancamentosDiarios() {
         )}
       </div>
 
-      {/* Lista lançamentos */}
+      {/* Lista lançamentos + sem registro */}
       {loading ? (
         <div className="text-center text-slate-500 py-12 text-sm">Carregando...</div>
-      ) : lancamentos.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center text-slate-400 text-sm">
-          {filtroStatus === 'pendente'
-            ? '✅ Nenhum lançamento pendente. Tudo validado!'
-            : 'Nenhum lançamento encontrado para este filtro.'}
-        </div>
       ) : (
         <div className="space-y-2">
+          {/* Lançamentos com registro */}
           {lancamentos.map(item => {
             const sb = STATUS_BADGE[item.status] || STATUS_BADGE.pendente;
             const kmPercorrido = item.km_retorno && item.km_saida
@@ -213,7 +232,6 @@ export default function LancamentosDiarios() {
               <div key={item.id}
                 className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  {/* Linha 1: veículo + badges */}
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-bold text-white text-sm bg-slate-800 px-2 py-0.5 rounded border border-slate-700" translate="no">
                       {item.veiculo}
@@ -228,22 +246,16 @@ export default function LancamentosDiarios() {
                     )}
                     <span className="text-xs text-slate-500">📅 {item.data}</span>
                   </div>
-
-                  {/* Linha 2: motoristas */}
                   <p className="text-xs text-slate-300">
                     Saída: <strong className="text-blue-300">{item.motorista}</strong>
                     {item.motorista_retorno && item.motorista_retorno !== item.motorista && (
                       <> · Retorno: <strong className="text-purple-300">{item.motorista_retorno}</strong></>
                     )}
                   </p>
-
-                  {/* Linha 3: horários */}
                   <p className="text-xs text-slate-400 mt-0.5">
                     🕐 {fmtHora(item.hora_saida)}
                     {item.hora_retorno && <> → {fmtHora(item.hora_retorno)}</>}
                   </p>
-
-                  {/* Linha 4: KM/horímetro */}
                   <p className="text-xs text-slate-400 mt-0.5">
                     {usaHorimetro ? '⏱ Hor.' : '🛣 KM'} saída:{' '}
                     <span className="text-slate-200">
@@ -253,9 +265,7 @@ export default function LancamentosDiarios() {
                       <> → retorno: <span className="text-slate-200">{Number(item.km_retorno).toLocaleString('pt-BR')}</span></>
                     )}
                     {kmPercorrido > 0 && (
-                      <> · <strong className="text-emerald-400">
-                        +{kmPercorrido.toLocaleString('pt-BR')} {usaHorimetro ? 'h' : 'km'}
-                      </strong></>
+                      <> · <strong className="text-emerald-400">+{kmPercorrido.toLocaleString('pt-BR')} {usaHorimetro ? 'h' : 'km'}</strong></>
                     )}
                   </p>
                 </div>
@@ -283,6 +293,44 @@ export default function LancamentosDiarios() {
               </div>
             );
           })}
+
+          {/* Veículos SEM registro no dia */}
+          {semRegistro.map(item => (
+            <div key={`sr-${item.veiculo}`}
+              className="bg-slate-900/40 border border-slate-800/50 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 opacity-70">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="font-bold text-slate-400 text-sm bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50" translate="no">
+                    {item.veiculo}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded border font-medium ${STATUS_BADGE.sem_registro.cls}`}>
+                    Sem Registro
+                  </span>
+                  {item.placa && (
+                    <span className="text-xs text-slate-600">{item.placa}</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  🛣 KM atual:{' '}
+                  <span className="text-slate-500">
+                    {item.km_atual ? Number(item.km_atual).toLocaleString('pt-BR') + ' km' : '—'}
+                  </span>
+                  {' · '}0 km percorridos registrados
+                </p>
+              </div>
+              <div className="shrink-0">
+                <Minus size={18} className="text-slate-700" />
+              </div>
+            </div>
+          ))}
+
+          {lancamentos.length === 0 && semRegistro.length === 0 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center text-slate-400 text-sm">
+              {filtroStatus === 'pendente'
+                ? '✅ Nenhum lançamento pendente. Tudo validado!'
+                : 'Nenhum dado encontrado para este filtro.'}
+            </div>
+          )}
         </div>
       )}
     </div>
