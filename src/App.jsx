@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import Veiculos from './components/Veiculos';
 import Manutencoes from './components/Manutencoes';
 import ControleOleo from './components/ControleOleo';
 import Tacografo from './components/Tacografo';
 import LancamentosDiarios from './components/LancamentosDiarios';
+import StatusDiarioFlyer from './components/StatusDiarioFlyer';
 
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
+
+  // Permite que Veiculos.jsx navegue para o flyer via evento customizado
+  useEffect(() => {
+    const handler = () => setAbaAtiva('status-diario');
+    window.addEventListener('nav:status-diario', handler);
+    return () => window.removeEventListener('nav:status-diario', handler);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -76,11 +84,18 @@ export default function App() {
             ⏱️ Tacógrafos
           </button>
 
-          <button 
+          <button
             onClick={() => setAbaAtiva('lancamentos')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border border-amber-500/40 ${abaAtiva === 'lancamentos' ? 'bg-amber-600 text-white shadow-amber-600/40 ring-1 ring-amber-400/30' : 'bg-slate-800 text-amber-300 hover:bg-slate-700'}`}
           >
             📥 Validação PWA
+          </button>
+
+          <button
+            onClick={() => setAbaAtiva('status-diario')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border border-emerald-500/40 ${abaAtiva === 'status-diario' ? 'bg-emerald-600 text-white shadow-emerald-600/40 ring-1 ring-emerald-400/30' : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'}`}
+          >
+            📋 Status da Frota
           </button>
         </nav>
       </header>
@@ -93,6 +108,7 @@ export default function App() {
         {abaAtiva === 'oleo' && <ControleOleo />}
         {abaAtiva === 'tacografo' && <Tacografo />}
         {abaAtiva === 'lancamentos' && <LancamentosDiarios />}
+        {abaAtiva === 'status-diario' && <StatusDiarioFlyer />}
       </main>
     </div>
   );
