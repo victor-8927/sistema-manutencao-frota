@@ -25,8 +25,9 @@ export default function StatusDiarioFlyer() {
     setLoading(true)
     const { data: vList } = await supabase
       .from('fleet_veiculos')
-      .select('id,codigo_vda,placa,descricao,tipo_veiculo,status_operacional,observacao_manutencao')
+      .select('id,codigo_vda,placa,descricao,tipo_veiculo,status_operacional,observacao_manutencao,categoria')
       .in('status_operacional', ['Ativo', 'Manutenção'])
+      .neq('categoria', 'Gerência')
       .order('codigo_vda')
 
     const { data: sdList } = await supabase
@@ -59,6 +60,8 @@ export default function StatusDiarioFlyer() {
     setDownloading(false)
   }
 
+  const frota  = veiculos.filter(v => v.categoria === 'Rota')
+  const apoio  = veiculos.filter(v => v.categoria === 'Apoio')
   const apto   = veiculos.filter(v => statusMap[v.id]?.status_dia === 'Apto para a Rota').length
   const inapto = veiculos.filter(v => statusMap[v.id]?.status_dia === 'Inapto').length
   const semSt  = veiculos.filter(v => !statusMap[v.id]).length
@@ -122,57 +125,62 @@ export default function StatusDiarioFlyer() {
           </div>
         </div>
 
-        {/* Grid de veículos */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-          {veiculos.map(v => {
+        {/* Função de card de veículo reutilizável */}
+        {(() => {
+          const VeiculoCard = (v) => {
             const sd = statusMap[v.id]
             const statusLabel = sd?.status_dia || (v.status_operacional === 'Manutenção' ? 'Inapto' : 'Sem Status')
             const cfg = STATUS_COLOR[statusLabel] || STATUS_COLOR['Sem Status']
             const obs = sd?.observacao || v.observacao_manutencao || ''
-
             return (
               <div key={v.id} style={{
-                background: '#1e293b',
-                border: '1px solid #334155',
-                borderLeft: `4px solid ${cfg.bg}`,
-                borderRadius: '10px',
-                padding: '12px 14px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: '8px',
+                background: '#1e293b', border: '1px solid #334155',
+                borderLeft: `4px solid ${cfg.bg}`, borderRadius: '10px',
+                padding: '12px 14px', display: 'flex',
+                justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px',
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ color: '#f1f5f9', fontWeight: '800', fontSize: '15px' }}>{v.codigo_vda}</div>
-                  {obs && (
-                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '3px', lineHeight: '1.4' }}>
-                      {obs}
-                    </div>
-                  )}
-                  {!obs && (
-                    <div style={{ color: '#64748b', fontSize: '11px', marginTop: '3px' }}>
-                      {statusLabel === 'Apto para a Rota' || statusLabel === 'Sem Status' ? 'Apto para a rota.' : ''}
-                    </div>
-                  )}
+                  <div style={{ color: obs ? '#94a3b8' : '#64748b', fontSize: '11px', marginTop: '3px', lineHeight: '1.4' }}>
+                    {obs || (statusLabel === 'Apto para a Rota' || statusLabel === 'Sem Status' ? 'Apto para a rota.' : '')}
+                  </div>
                 </div>
                 <div style={{
-                  background: cfg.bg,
-                  color: cfg.text,
-                  borderRadius: '8px',
-                  padding: '6px 12px',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  whiteSpace: 'nowrap',
-                  textAlign: 'center',
-                  minWidth: '100px',
+                  background: cfg.bg, color: cfg.text, borderRadius: '8px',
+                  padding: '6px 12px', fontSize: '11px', fontWeight: '800',
+                  whiteSpace: 'nowrap', textAlign: 'center', minWidth: '100px',
                 }}>
                   <div style={{ fontSize: '16px' }}>{cfg.icon === '✓' ? '✅' : cfg.icon === '✗' ? '❌' : cfg.icon === '!' ? '⚠️' : '➖'}</div>
                   <div style={{ marginTop: '2px' }}>{statusLabel.toUpperCase()}</div>
                 </div>
               </div>
             )
-          })}
-        </div>
+          }
+
+          return (<>
+            {/* Frota de Rota */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ color: '#06b6d4', fontWeight: '800', fontSize: '13px', letterSpacing: '1px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🚛 FROTA DE ROTA
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {frota.map(v => VeiculoCard(v))}
+              </div>
+            </div>
+
+            {/* Veículos de Apoio */}
+            {apoio.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '13px', letterSpacing: '1px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🔧 VEÍCULOS DE APOIO
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {apoio.map(v => VeiculoCard(v))}
+                </div>
+              </div>
+            )}
+          </>)
+        })()}
 
         {/* Observações Importantes */}
         {veiculos.some(v => statusMap[v.id]?.observacao || v.observacao_manutencao) && (

@@ -8,11 +8,13 @@ const TIPOS = ['Caminhão Toco','Caminhão Truck','Caminhão','Cavalo Mecânico'
 const MOTIVOS_MANUTENCAO = ['Preventiva', 'Corretiva']
 const MOTIVOS_INATIVACAO = ['Vendido', 'Manutenção Longa', 'Sinistro', 'Aposentado', 'Outro']
 const STATUS_DIA_OPTS = ['Apto para a Rota','Apto para Serviço','Apto com Observação','Inapto']
+const CATEGORIAS = ['Rota', 'Apoio', 'Gerência']
 
 const EMPTY = {
   codigo_vda: '', placa: '', descricao: '',
   tipo_veiculo: 'Caminhão Toco', status_operacional: 'Ativo',
-  motivo_inativacao: '', motivo_manutencao: '', observacao_manutencao: ''
+  motivo_inativacao: '', motivo_manutencao: '', observacao_manutencao: '',
+  categoria: 'Rota'
 }
 
 /* ── Modal Editar/Novo Veículo ── */
@@ -37,6 +39,7 @@ function VeiculoModal({ row, onClose, onSaved }) {
       motivo_inativacao: isInativo ? (form.motivo_inativacao || null) : null,
       motivo_manutencao: isManut ? (form.motivo_manutencao || null) : null,
       observacao_manutencao: isManut ? (form.observacao_manutencao || null) : null,
+      categoria: form.categoria || 'Rota',
     }
     const { error } = await (isNew
       ? supabase.from('fleet_veiculos').insert(payload)
@@ -72,6 +75,13 @@ function VeiculoModal({ row, onClose, onSaved }) {
             <select value={form.tipo_veiculo} onChange={e => set('tipo_veiculo', e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
               {TIPOS.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Categoria</label>
+            <select value={form.categoria || 'Rota'} onChange={e => set('categoria', e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+              {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div>
