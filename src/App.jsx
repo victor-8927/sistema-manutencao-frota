@@ -6,6 +6,7 @@ import ControleOleo from './components/ControleOleo';
 import Tacografo from './components/Tacografo';
 import LancamentosDiarios from './components/LancamentosDiarios';
 import StatusDiarioFlyer from './components/StatusDiarioFlyer';
+import PainelAnalista from './components/PainelAnalista';
 
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
@@ -97,6 +98,13 @@ export default function App() {
           >
             📋 Status da Frota
           </button>
+
+          <button
+            onClick={() => setAbaAtiva('analista')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border border-purple-500/40 ${abaAtiva === 'analista' ? 'bg-purple-600 text-white shadow-purple-600/40 ring-1 ring-purple-400/30' : 'bg-slate-800 text-purple-300 hover:bg-slate-700'}`}
+          >
+            🗺️ Analista
+          </button>
         </nav>
       </header>
 
@@ -109,6 +117,7 @@ export default function App() {
         {abaAtiva === 'tacografo' && <Tacografo />}
         {abaAtiva === 'lancamentos' && <LancamentosDiarios />}
         {abaAtiva === 'status-diario' && <StatusDiarioFlyer />}
+        {abaAtiva === 'analista' && <PainelAnalista />}
       </main>
     </div>
   );
