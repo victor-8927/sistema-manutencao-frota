@@ -1,26 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { RefreshCw, CheckCircle, XCircle, Navigation } from 'lucide-react';
 
 const STATUS_BADGE = {
   pendente:  { label: 'Pendente',  cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   aprovado:  { label: 'Aprovado',  cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
   rejeitado: { label: 'Rejeitado', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+  em_rota:   { label: 'Em Rota',   cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+};
+
+function fmtHora(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function LancamentosDiarios() {
   const today = new Date().toISOString().slice(0, 10);
   const [filtroData, setFiltroData] = useState(today);
-  const [filtroStatus, setFiltroStatus] = useState('pendente');
+  const [filtroStatus, setFiltroStatus] = useState('todos');
   const [lancamentos, setLancamentos] = useState([]);
+  const [emRota, setEmRota] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const buscar = async () => {
     setLoading(true);
+
+    // Veículos em rota (sem filtro de data)
+    const { data: rota } = await supabase
+      .from('lancamentos_diarios')
+      .select('*')
+      .eq('status', 'em_rota')
+      .order('hora_saida', { ascending: false });
+    setEmRota(rota || []);
+
+    // Lançamentos com filtros
     let q = supabase
       .from('lancamentos_diarios')
       .select('*')
-      .order('updated_at', { ascending: false });
+      .neq('status', 'em_rota')
+      .order('hora_saida', { ascending: false, nullsFirst: false });
 
     if (filtroData) q = q.eq('data', filtroData);
     if (filtroStatus !== 'todos') q = q.eq('status', filtroStatus);
@@ -53,8 +71,8 @@ export default function LancamentosDiarios() {
   };
 
   const totalKm = lancamentos
-    .filter(l => l.status === 'aprovado' && l.tipo_controle === 'km')
-    .reduce((acc, l) => acc + Number(l.total_recorrido), 0);
+    .filter(l => l.status === 'aprovado')
+    .reduce((acc, l) => acc + Number(l.total_recorrido || 0), 0);
 
   const pendentes = lancamentos.filter(l => l.status === 'pendente').length;
 
@@ -71,6 +89,38 @@ export default function LancamentosDiarios() {
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
+
+      {/* Veículos EM ROTA agora */}
+      {emRota.length > 0 && (
+        <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Navigation size={14} className="text-blue-400" />
+            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">
+              Em Rota Agora — {emRota.length} veículo{emRota.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {emRota.map(item => (
+              <div key={item.id}
+                className="bg-slate-900/60 border border-blue-500/20 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-bold text-white text-sm" translate="no">{item.veiculo}</span>
+                  <span className="ml-2 text-xs text-slate-400">{item.motorista}</span>
+                  {item.motivo && (
+                    <span className="ml-2 text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-300">{item.motivo}</span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-400">
+                  Saída: <span className="text-slate-200 font-medium">{fmtHora(item.hora_saida)}</span>
+                  {item.km_saida && (
+                    <> · KM: <span className="text-slate-200 font-medium">{Number(item.km_saida).toLocaleString('pt-BR')}</span></>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
@@ -114,7 +164,7 @@ export default function LancamentosDiarios() {
         )}
       </div>
 
-      {/* Tabela */}
+      {/* Lista lançamentos */}
       {loading ? (
         <div className="text-center text-slate-500 py-12 text-sm">Carregando...</div>
       ) : lancamentos.length === 0 ? (
@@ -127,10 +177,16 @@ export default function LancamentosDiarios() {
         <div className="space-y-2">
           {lancamentos.map(item => {
             const sb = STATUS_BADGE[item.status] || STATUS_BADGE.pendente;
+            const kmPercorrido = item.km_retorno && item.km_saida
+              ? Number(item.km_retorno) - Number(item.km_saida)
+              : Number(item.total_recorrido || 0);
+            const usaHorimetro = item.tipo_controle === 'horimetro';
+
             return (
               <div key={item.id}
                 className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 <div className="flex-1 min-w-0">
+                  {/* Linha 1: veículo + badges */}
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-bold text-white text-sm bg-slate-800 px-2 py-0.5 rounded border border-slate-700" translate="no">
                       {item.veiculo}
@@ -138,21 +194,42 @@ export default function LancamentosDiarios() {
                     <span className={`text-xs px-2 py-0.5 rounded border font-medium ${sb.cls}`}>
                       {sb.label}
                     </span>
-                    <span className="text-xs text-slate-400">📅 {item.data}</span>
+                    {item.motivo && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        {item.motivo}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-500">📅 {item.data}</span>
                   </div>
+
+                  {/* Linha 2: motoristas */}
                   <p className="text-xs text-slate-300">
-                    Motorista: <strong className="text-blue-300">{item.motorista}</strong>
-                    <span className="ml-2 text-slate-500">|</span>
-                    <span className="ml-2 uppercase font-semibold text-slate-400">{item.tipo_controle}</span>
+                    Saída: <strong className="text-blue-300">{item.motorista}</strong>
+                    {item.motorista_retorno && item.motorista_retorno !== item.motorista && (
+                      <> · Retorno: <strong className="text-purple-300">{item.motorista_retorno}</strong></>
+                    )}
                   </p>
+
+                  {/* Linha 3: horários */}
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Início: <span className="text-slate-200">{Number(item.valor_inicial).toLocaleString('pt-BR')}</span>
-                    <span className="mx-1">→</span>
-                    Final: <span className="text-slate-200">{Number(item.valor_final).toLocaleString('pt-BR')}</span>
-                    <span className="mx-1">|</span>
-                    <strong className="text-emerald-400">
-                      Total: {Number(item.total_recorrido).toLocaleString('pt-BR')} {item.tipo_controle === 'km' ? 'km' : 'h'}
-                    </strong>
+                    🕐 {fmtHora(item.hora_saida)}
+                    {item.hora_retorno && <> → {fmtHora(item.hora_retorno)}</>}
+                  </p>
+
+                  {/* Linha 4: KM/horímetro */}
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {usaHorimetro ? '⏱ Hor.' : '🛣 KM'} saída:{' '}
+                    <span className="text-slate-200">
+                      {item.km_saida ? Number(item.km_saida).toLocaleString('pt-BR') : '—'}
+                    </span>
+                    {item.km_retorno && (
+                      <> → retorno: <span className="text-slate-200">{Number(item.km_retorno).toLocaleString('pt-BR')}</span></>
+                    )}
+                    {kmPercorrido > 0 && (
+                      <> · <strong className="text-emerald-400">
+                        +{kmPercorrido.toLocaleString('pt-BR')} {usaHorimetro ? 'h' : 'km'}
+                      </strong></>
+                    )}
                   </p>
                 </div>
 
