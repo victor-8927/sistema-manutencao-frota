@@ -6,7 +6,9 @@ import ConfirmDialog from './ConfirmDialog'
 import StatusBadge from './StatusBadge'
 
 function calcStatus(r) {
-  const rod = (r.km_atual || 0) - (r.km_ultima_troca || 0)
+  // km_atual vem de fleet_veiculos (via PWA) ou fallback do próprio registro
+  const kmAtual = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
+  const rod = kmAtual - (r.km_ultima_troca || 0)
   const lim = r.km_oleo_limite || 10000
   if (rod >= lim)       return { label: 'Ultrapassou Limite', color: 'red',    pct: 100 }
   if (rod >= lim * 0.9) return { label: 'Pronto p/ Troca',   color: 'yellow', pct: Math.round((rod/lim)*100) }
@@ -26,11 +28,12 @@ function ProgressBar({ pct, color }) {
 
 function OleoModal({ row, veiculos, onClose, onSaved }) {
   const isNew = !row?.id
+  // km_atual vem de fleet_veiculos (via PWA) — somente leitura no modal
+  const kmAtualPwa = row?.fleet_veiculos?.km_atual ?? null
   const [form, setForm] = useState({
     veiculo_id:        row?.veiculo_id        ?? '',
     data_ultima_troca: row?.data_ultima_troca ?? new Date().toISOString().split('T')[0],
     km_ultima_troca:   row?.km_ultima_troca   ?? 0,
-    km_atual:          row?.km_atual          ?? 0,
     km_oleo_limite:    row?.km_oleo_limite    ?? 10000,
     observacao:        row?.observacao        ?? '',
   })
@@ -45,10 +48,10 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
       veiculo_id:        form.veiculo_id,
       data_ultima_troca: form.data_ultima_troca || null,
       km_ultima_troca:   Number(form.km_ultima_troca),
-      km_atual:          Number(form.km_atual),
       km_oleo_limite:    Number(form.km_oleo_limite),
       observacao:        form.observacao || null,
       data_atualizacao:  new Date().toISOString(),
+      // km_atual NÃO é enviado — vem de fleet_veiculos via PWA/lançamento aprovado
     }
     const { error } = await (isNew
       ? supabase.from('fleet_controle_oleo').insert(payload)
@@ -84,9 +87,14 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">KM Atual</label>
-            <input type="number" value={form.km_atual} onChange={e => set('km_atual', e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+            <label className="block text-xs text-gray-400 mb-1">KM Atual <span className="text-blue-400">(via PWA)</span></label>
+            <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400">
+              {kmAtualPwa != null ? (
+                <span className="text-white font-medium">{kmAtualPwa.toLocaleString('pt-BR')} km</span>
+              ) : (
+                <span className="italic text-gray-500">Atualizado automaticamente ao aprovar lançamento</span>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">Intervalo (km)</label>
@@ -122,7 +130,8 @@ export default function ControleOleo() {
   const load = useCallback(async () => {
     setLoading(true)
     const [{ data: ol }, { data: vei }] = await Promise.all([
-      supabase.from('fleet_controle_oleo').select('*, fleet_veiculos(id, codigo_vda, placa)').order('data_atualizacao', { ascending: false }),
+      // inclui km_atual e km_atualizado_em de fleet_veiculos como fonte de verdade
+      supabase.from('fleet_controle_oleo').select('*, fleet_veiculos(id, codigo_vda, placa, km_atual, km_atualizado_em)').order('data_atualizacao', { ascending: false }),
       supabase.from('fleet_veiculos').select('id, codigo_vda, placa').order('codigo_vda'),
     ])
     setRows(ol || []); setVeiculos(vei || [])
@@ -133,6 +142,8 @@ export default function ControleOleo() {
     load()
     const ch = supabase.channel('oleo-ch')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_controle_oleo' }, load)
+      // escuta também fleet_veiculos para atualizar km em tempo real quando KM Diário aprovar
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fleet_veiculos' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
@@ -204,14 +215,21 @@ export default function ControleOleo() {
                 <tr><td colSpan={8} className="text-center text-gray-500 py-10">Nenhum registro encontrado</td></tr>
               )}
               {filtered.map(r => {
+                const kmAtual = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
+                const kmViaPwa = r.fleet_veiculos?.km_atual != null
                 const st   = calcStatus(r)
-                const rod  = (r.km_atual || 0) - (r.km_ultima_troca || 0)
+                const rod  = kmAtual - (r.km_ultima_troca || 0)
                 const saldo = (r.km_oleo_limite || 10000) - rod
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
                     <td className="px-4 py-3 font-medium text-white">{r.fleet_veiculos?.codigo_vda ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-400">{r.fleet_veiculos?.placa ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmtKm(r.km_atual)}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-gray-300">{fmtKm(kmAtual)}</span>
+                      {kmViaPwa && (
+                        <span className="ml-1.5 text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">PWA</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-300">{fmtKm(r.km_ultima_troca)}</td>
                     <td className="px-4 py-3 text-gray-300">{fmtKm(rod)}</td>
                     <td className="px-4 py-3">

@@ -52,11 +52,38 @@ export default function LancamentosDiarios() {
   useEffect(() => { buscar(); }, [filtroData, filtroStatus]);
 
   const aprovar = async (id) => {
+    // busca o lançamento para pegar veiculo e km_retorno
+    const lanc = lancamentos.find(l => l.id === id);
+
     const { error } = await supabase
       .from('lancamentos_diarios')
       .update({ status: 'aprovado' })
       .eq('id', id);
     if (error) { alert('Erro: ' + error.message); return; }
+
+    // atualiza km_atual em fleet_veiculos se tiver km_retorno
+    if (lanc?.km_retorno && lanc?.veiculo) {
+      // busca id do veículo pelo codigo_vda
+      const { data: vei } = await supabase
+        .from('fleet_veiculos')
+        .select('id')
+        .eq('codigo_vda', lanc.veiculo)
+        .single();
+      if (vei?.id) {
+        await supabase
+          .from('fleet_veiculos')
+          .update({
+            km_atual: lanc.km_retorno,
+            km_atualizado_em: new Date().toISOString()
+          })
+          .eq('id', vei.id);
+        // atualiza também fleet_controle_oleo se existir registro
+        await supabase
+          .from('fleet_controle_oleo')
+          .update({ km_atual: lanc.km_retorno, data_atualizacao: new Date().toISOString() })
+          .eq('veiculo_id', vei.id);
+      }
+    }
     buscar();
   };
 
