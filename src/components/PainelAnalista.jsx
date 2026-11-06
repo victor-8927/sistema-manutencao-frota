@@ -18,6 +18,7 @@ const MODAL_EVENTO_VAZIO = {
 };
 const MODAL_RETORNO_VAZIO = { id: null, veiculo: '', km_retorno: '', observacao: '' };
 const MODAL_SEM_MOV_VAZIO = { veiculo: '', data: new Date().toISOString().slice(0, 10), motivo: '' };
+const MODAL_CLASSIFICAR_VAZIO = { id: null, veiculo: '', tipo: 'evento', nome_evento: '', local_evento: '', retorno_previsto: '' };
 
 export default function PainelAnalista() {
   const [frota, setFrota] = useState([]);
@@ -33,6 +34,9 @@ export default function PainelAnalista() {
 
   const [modalSemMov, setModalSemMov] = useState(false);
   const [semMov, setSemMov] = useState(MODAL_SEM_MOV_VAZIO);
+
+  const [modalClassificar, setModalClassificar] = useState(false);
+  const [classificar, setClassificar] = useState(MODAL_CLASSIFICAR_VAZIO);
 
   const [salvando, setSalvando] = useState(false);
 
@@ -182,6 +186,32 @@ export default function PainelAnalista() {
   const abrirRetorno = (lanc) => {
     setRetorno({ id: lanc.id, veiculo: lanc.veiculo, km_retorno: '', observacao: '' });
     setModalRetorno(true);
+  };
+
+  const abrirClassificar = (lanc) => {
+    setClassificar({ id: lanc.id, veiculo: lanc.veiculo, tipo: 'evento', nome_evento: '', local_evento: '', retorno_previsto: '' });
+    setModalClassificar(true);
+  };
+
+  const salvarClassificacao = async () => {
+    if (!classificar.tipo) return;
+    if (classificar.tipo === 'evento' && !classificar.nome_evento) { alert('Informe o nome do evento.'); return; }
+    setSalvando(true);
+
+    const obs = classificar.tipo === 'evento'
+      ? [classificar.nome_evento, classificar.local_evento && `Local: ${classificar.local_evento}`, classificar.retorno_previsto && `Retorno previsto: ${fmtData(classificar.retorno_previsto)}`].filter(Boolean).join(' · ')
+      : null;
+
+    const { error } = await supabase
+      .from('lancamentos_diarios')
+      .update({ tipo: classificar.tipo, ...(obs ? { observacao: obs } : {}) })
+      .eq('id', classificar.id);
+
+    setSalvando(false);
+    if (error) { alert('Erro: ' + error.message); return; }
+    setModalClassificar(false);
+    setClassificar(MODAL_CLASSIFICAR_VAZIO);
+    buscar();
   };
 
   const veiculosDisponiveis = frota
@@ -381,6 +411,68 @@ export default function PainelAnalista() {
         </div>
       )}
 
+      {/* Modal Classificar Saída */}
+      {modalClassificar && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                🏷️ Classificar Saída
+              </h3>
+              <button onClick={() => setModalClassificar(false)} className="text-slate-500 hover:text-white text-xl leading-none">×</button>
+            </div>
+            <p className="text-sm text-slate-400">
+              Veículo: <span className="text-white font-bold" translate="no">{classificar.veiculo}</span>
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Tipo *</label>
+                <select value={classificar.tipo} onChange={e => setClassificar(p => ({ ...p, tipo: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                  <option value="evento">🎉 Evento</option>
+                  <option value="servico_externo">🔧 Serviço Externo</option>
+                  <option value="manutencao">🛠️ Manutenção</option>
+                </select>
+              </div>
+              {classificar.tipo === 'evento' && (
+                <>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Nome do Evento *</label>
+                    <input type="text" value={classificar.nome_evento}
+                      onChange={e => setClassificar(p => ({ ...p, nome_evento: e.target.value }))}
+                      placeholder="ex: Carnaval, Show Arena"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Local</label>
+                    <input type="text" value={classificar.local_evento}
+                      onChange={e => setClassificar(p => ({ ...p, local_evento: e.target.value }))}
+                      placeholder="ex: Sambódromo, Arena da Amazônia"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Retorno Previsto</label>
+                    <input type="date" value={classificar.retorno_previsto}
+                      onChange={e => setClassificar(p => ({ ...p, retorno_previsto: e.target.value }))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={salvarClassificacao} disabled={salvando}
+                className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors">
+                {salvando ? 'Salvando...' : 'Confirmar Classificação'}
+              </button>
+              <button onClick={() => setModalClassificar(false)}
+                className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white border border-slate-700 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -450,6 +542,18 @@ export default function PainelAnalista() {
                       <div className="text-cyan-400">{v.lancRota.motivo}</div>
                     )}
                   </div>
+                )}
+                {v.lancRota && v.lancRota.tipo === 'rota' && (
+                  <button
+                    onClick={() => abrirClassificar(v.lancRota)}
+                    className="mt-1 w-full flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-purple-700 text-slate-300 hover:text-white text-xs font-medium py-1.5 rounded-lg transition-colors">
+                    🏷️ Classificar Saída
+                  </button>
+                )}
+                {v.lancRota && v.lancRota.tipo !== 'rota' && (
+                  <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded font-medium ${v.lancRota.tipo === 'evento' ? 'bg-purple-500/20 text-purple-300' : v.lancRota.tipo === 'servico_externo' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-orange-500/20 text-orange-300'}`}>
+                    {v.lancRota.tipo === 'evento' ? '🎉 Evento' : v.lancRota.tipo === 'servico_externo' ? '🔧 Serv. Externo' : '🛠️ Manutenção'}
+                  </span>
                 )}
               </div>
             ))}
