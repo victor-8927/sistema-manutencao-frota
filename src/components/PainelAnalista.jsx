@@ -188,6 +188,20 @@ export default function PainelAnalista() {
     .filter(f => f.fleet_veiculos?.status_operacional === 'Ativo')
     .map(f => f.fleet_veiculos);
 
+  const preencherDadosPWA = (cod) => {
+    const lancRota = emRota.find(r => r.veiculo === cod);
+    if (!lancRota) return;
+    setEvento(p => ({
+      ...p,
+      veiculo: cod,
+      motorista: lancRota.motorista || p.motorista,
+      km_saida: lancRota.km_saida ? String(lancRota.km_saida) : p.km_saida,
+      data: lancRota.hora_saida
+        ? new Date(lancRota.hora_saida).toISOString().slice(0, 10)
+        : p.data,
+    }));
+  };
+
   return (
     <div className="space-y-5">
 
@@ -205,7 +219,7 @@ export default function PainelAnalista() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Veículo *</label>
-                <select value={evento.veiculo} onChange={e => setEvento(p => ({ ...p, veiculo: e.target.value }))}
+                <select value={evento.veiculo} onChange={e => { setEvento(p => ({ ...p, veiculo: e.target.value })); preencherDadosPWA(e.target.value); }}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
                   <option value="">Selecione...</option>
                   {veiculosDisponiveis.map(v => (
