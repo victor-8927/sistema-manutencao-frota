@@ -1,6 +1,30 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Hook: detecta nova versão do service worker disponível
+function useSwUpdate() {
+  const [updateReady, setUpdateReady] = useState(false);
+  const [swReg, setSwReg] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      setUpdateReady(true);
+      setSwReg(e.detail?.reg);
+    };
+    window.addEventListener('sw-update-available', handler);
+    return () => window.removeEventListener('sw-update-available', handler);
+  }, []);
+
+  const aplicarUpdate = () => {
+    if (swReg?.waiting) {
+      swReg.waiting.postMessage('SKIP_WAITING');
+    }
+    window.location.reload();
+  };
+
+  return { updateReady, aplicarUpdate };
+}
+
 const MOTIVOS = ['Rota', 'Evento', 'Oficina', 'Serv. Externo']
 const LS_KEY = 'pwa_rota_ativa'
 
@@ -15,6 +39,7 @@ function limparRotaAtiva() {
 }
 
 export default function LancamentoMobile() {
+  const { updateReady, aplicarUpdate } = useSwUpdate();
   const [tela, setTela] = useState('home') // home | saida | retorno
   const [veiculos, setVeiculos] = useState([])
   const [motoristas, setMotoristas] = useState([])
@@ -221,6 +246,31 @@ export default function LancamentoMobile() {
       minHeight: '100vh', background: '#020617', color: '#f1f5f9',
       fontFamily: 'system-ui, sans-serif', padding: '0'
     }}>
+      {/* Banner de atualização disponível */}
+      {updateReady && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: 'linear-gradient(90deg, #0ea5e9, #0284c7)',
+          padding: '10px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, boxShadow: '0 2px 12px rgba(14,165,233,0.4)'
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+            🔄 Nova versão disponível
+          </span>
+          <button
+            onClick={aplicarUpdate}
+            style={{
+              background: '#fff', color: '#0284c7',
+              border: 'none', borderRadius: 8,
+              padding: '6px 16px', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', flexShrink: 0
+            }}>
+            Atualizar agora
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)',

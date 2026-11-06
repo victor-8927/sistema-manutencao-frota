@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#020617"/>
+  <rect x="40" y="40" width="432" height="432" rx="72" fill="#0f172a"/>
+  <!-- Caminhão estilizado -->
+  <rect x="72" y="210" width="240" height="140" rx="20" fill="#1e3a5f"/>
+  <rect x="312" y="248" width="112" height="102" rx="16" fill="#1e3a5f"/>
+  <rect x="322" y="258" width="92" height="60" rx="10" fill="#38bdf8"/>
+  <!-- Rodas -->
+  <circle cx="148" cy="366" r="34" fill="#334155"/>
+  <circle cx="148" cy="366" r="16" fill="#94a3b8"/>
+  <circle cx="348" cy="366" r="34" fill="#334155"/>
+  <circle cx="348" cy="366" r="16" fill="#94a3b8"/>
+  <!-- KM texto -->
+  <text x="256" y="195" font-family="system-ui,sans-serif" font-size="64" font-weight="900" fill="#38bdf8" text-anchor="middle">KM</text>
+  <!-- Subtexto -->
+  <text x="256" y="230" font-family="system-ui,sans-serif" font-size="22" font-weight="600" fill="#64748b" text-anchor="middle">GELOCRIM</text>
+  <!-- Barra de progresso decorativa -->
+  <rect x="80" y="258" width="200" height="10" rx="5" fill="#0ea5e9" opacity="0.3"/>
+  <rect x="80" y="258" width="130" height="10" rx="5" fill="#0ea5e9"/>
+</svg>

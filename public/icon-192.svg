@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#020617"/>
+  <rect x="16" y="16" width="160" height="160" rx="28" fill="#0f172a"/>
+  <!-- Caminhão estilizado -->
+  <rect x="30" y="80" width="90" height="52" rx="8" fill="#1e3a5f"/>
+  <rect x="120" y="95" width="42" height="37" rx="6" fill="#1e3a5f"/>
+  <rect x="124" y="99" width="34" height="22" rx="4" fill="#38bdf8"/>
+  <!-- Rodas -->
+  <circle cx="58" cy="138" r="12" fill="#334155"/>
+  <circle cx="58" cy="138" r="6" fill="#94a3b8"/>
+  <circle cx="130" cy="138" r="12" fill="#334155"/>
+  <circle cx="130" cy="138" r="6" fill="#94a3b8"/>
+  <!-- KM texto -->
+  <text x="96" y="74" font-family="system-ui,sans-serif" font-size="22" font-weight="900" fill="#38bdf8" text-anchor="middle">KM</text>
+  <!-- Linha velocidade -->
+  <rect x="38" y="96" width="74" height="4" rx="2" fill="#0ea5e9" opacity="0.4"/>
+  <rect x="38" y="96" width="46" height="4" rx="2" fill="#0ea5e9"/>
+</svg>

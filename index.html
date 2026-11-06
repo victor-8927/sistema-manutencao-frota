@@ -15,5 +15,26 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Registra Service Worker apenas na rota /pwa
+      if ('serviceWorker' in navigator && window.location.pathname.startsWith('/pwa')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/pwa' })
+            .then((reg) => {
+              // Detecta nova versão disponível
+              reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // Dispara evento para o React exibir o banner
+                    window.dispatchEvent(new CustomEvent('sw-update-available', { detail: { reg } }));
+                  }
+                });
+              });
+            })
+            .catch((err) => console.warn('SW registro falhou:', err));
+        });
+      }
+    </script>
   </body>
 </html>
