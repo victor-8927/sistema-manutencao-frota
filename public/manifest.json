@@ -1,0 +1,22 @@
+{
+  "name": "GELOCRIM - KM Diário",
+  "short_name": "KM Diário",
+  "description": "Lançamento diário de KM dos motoristas GELOCRIM",
+  "start_url": "/pwa",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/gelocrim-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/gelocrim-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
