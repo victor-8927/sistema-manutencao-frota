@@ -89,7 +89,7 @@ export default function LancamentoMobile() {
       tipo_controle: usaHorimetro ? 'horimetro' : 'km',
       km_saida: parseFloat(saida.km_saida),
       hora_saida: agora,
-      valor_inicial: usaHorimetro ? parseFloat(saida.horimetro_saida) : null,
+      valor_inicial: usaHorimetro ? parseFloat(saida.horimetro_saida) : 0,
       status: 'em_rota',
       updated_at: agora
     }
