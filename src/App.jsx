@@ -88,7 +88,7 @@ export default function App() {
             onClick={() => setAbaAtiva('lancamentos')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm border border-amber-500/40 ${abaAtiva === 'lancamentos' ? 'bg-amber-600 text-white shadow-amber-600/40 ring-1 ring-amber-400/30' : 'bg-slate-800 text-amber-300 hover:bg-slate-700'}`}
           >
-            📥 Validação PWA
+            📍 KM Diário
           </button>
 
           <button

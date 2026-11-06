@@ -1,121 +1,186 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../firebase'; // Ajusta o caminho do supabase se necessário
+import { supabase } from '../lib/supabase';
+import { RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+
+const STATUS_BADGE = {
+  pendente:  { label: 'Pendente',  cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  aprovado:  { label: 'Aprovado',  cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  rejeitado: { label: 'Rejeitado', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+}
 
 export default function LancamentosDiarios() {
-  const [pendentes, setPendentes] = useState([]);
+  const today = new Date().toISOString().slice(0, 10);
+  const [filtroData, setFiltroData] = useState(today);
+  const [filtroStatus, setFiltroStatus] = useState('pendente');
+  const [lancamentos, setLancamentos] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const buscarPendentes = async () => {
+  const buscar = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let q = supabase
       .from('lancamentos_diarios')
       .select('*')
-      .eq('status', 'pendente')
-      .order('data', { ascending: false });
+      .order('updated_at', { ascending: false });
 
-    if (error) {
-      console.error('Erro ao buscar lançamentos pendentes:', error);
-    } else {
-      setPendentes(data || []);
-    }
+    if (filtroData) q = q.eq('data', filtroData);
+    if (filtroStatus !== 'todos') q = q.eq('status', filtroStatus);
+
+    const { data, error } = await q;
+    if (error) console.error(error);
+    setLancamentos(data || []);
     setLoading(false);
   };
 
-  useEffect(() => {
-    buscarPendentes();
-  }, []);
+  useEffect(() => { buscar(); }, [filtroData, filtroStatus]);
 
-  const aprovarLancamento = async (id) => {
+  const aprovar = async (id) => {
     const { error } = await supabase
       .from('lancamentos_diarios')
       .update({ status: 'aprovado' })
       .eq('id', id);
-
-    if (error) {
-      alert('Erro ao aprovar lançamento: ' + error.message);
-    } else {
-      alert('✅ Lançamento aprovado com sucesso!');
-      buscarPendentes();
-    }
+    if (error) { alert('Erro: ' + error.message); return; }
+    buscar();
   };
 
-  const rejeitarLancamento = async (id) => {
-    if (!window.confirm('Tens a certeza que queres rejeitar e eliminar este registo?')) return;
-
+  const rejeitar = async (id) => {
+    if (!window.confirm('Rejeitar este lançamento?')) return;
     const { error } = await supabase
       .from('lancamentos_diarios')
-      .delete()
+      .update({ status: 'rejeitado' })
       .eq('id', id);
-
-    if (error) {
-      alert('Erro ao rejeitar: ' + error.message);
-    } else {
-      alert('🗑️ Lançamento rejeitado e removido.');
-      buscarPendentes();
-    }
+    if (error) { alert('Erro: ' + error.message); return; }
+    buscar();
   };
 
+  const totalKm = lancamentos
+    .filter(l => l.status === 'aprovado' && l.tipo_controle === 'km')
+    .reduce((acc, l) => acc + Number(l.total_recorrido), 0);
+
+  const pendentes = lancamentos.filter(l => l.status === 'pendente').length;
+
   return (
-    <div className="p-4 bg-slate-950 text-slate-100 min-h-screen">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className="text-base font-bold text-blue-400">Validação de Lançamentos de Campo (PWA)</h1>
-            <p className="text-[11px] text-slate-400">Analise e aprove os registos enviados pelos motoristas via telemóvel.</p>
-          </div>
-          <button 
-            onClick={buscarPendentes}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5"
-          >
-            🔄 Atualizar Fila
-          </button>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white">KM Diário — Validação</h2>
+          <p className="text-xs text-slate-400">Lançamentos enviados pelos motoristas via PWA</p>
         </div>
+        <button onClick={buscar}
+          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
 
-        {loading ? (
-          <p className="text-center text-slate-500 py-12 text-xs">A carregar lançamentos pendentes...</p>
-        ) : pendentes.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-10 text-center text-slate-400 text-xs">
-            ✅ Não há lançamentos pendentes de aprovação no momento. Todos os registos do campo foram validados.
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {pendentes.map((item) => (
-              <div key={item.id} className="bg-slate-900 border border-slate-800 p-3.5 rounded-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-white text-xs bg-slate-800 px-2 py-0.5 rounded border border-slate-700">{item.veiculo}</span>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-medium">Pendente de Aprovação</span>
-                    <span className="text-[11px] text-slate-400">📅 {item.data}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300">
-                    Motorista: <strong className="text-blue-300">{item.motorista}</strong> | 
-                    Controlo: <span className="uppercase font-semibold text-slate-200">{item.tipo_controle}</span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Início: {item.valor_inicial} | Final: {item.valor_final} | 
-                    <strong className="text-emerald-400 ml-1">Total: {item.total_recorrido} {item.tipo_controle === 'km' ? 'km' : 'horas'}</strong>
-                  </p>
-                </div>
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Pendentes</div>
+          <div className="text-2xl font-black text-amber-400">{pendentes}</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Total KM Aprovado</div>
+          <div className="text-2xl font-black text-emerald-400">{totalKm.toLocaleString('pt-BR')} km</div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Lançamentos</div>
+          <div className="text-2xl font-black text-blue-400">{lancamentos.length}</div>
+        </div>
+      </div>
 
-                <div className="flex gap-2 w-full md:w-auto">
-                  <button 
-                    onClick={() => aprovarLancamento(item.id)}
-                    className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded text-xs transition-colors shadow"
-                  >
-                    ✔️ Aprovar
-                  </button>
-                  <button 
-                    onClick={() => rejeitarLancamento(item.id)}
-                    className="flex-1 md:flex-none bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded text-xs border border-rose-500/30 transition-colors"
-                  >
-                    ❌ Rejeitar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Data</label>
+          <input type="date" value={filtroData}
+            onChange={e => setFiltroData(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Status</label>
+          <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            <option value="todos">Todos</option>
+            <option value="pendente">Pendentes</option>
+            <option value="aprovado">Aprovados</option>
+            <option value="rejeitado">Rejeitados</option>
+          </select>
+        </div>
+        {filtroData && (
+          <button onClick={() => setFiltroData('')}
+            className="mt-5 text-xs text-slate-500 hover:text-white transition-colors">
+            Ver todos os dias
+          </button>
         )}
       </div>
+
+      {/* Tabela */}
+      {loading ? (
+        <div className="text-center text-slate-500 py-12 text-sm">Carregando...</div>
+      ) : lancamentos.length === 0 ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center text-slate-400 text-sm">
+          {filtroStatus === 'pendente'
+            ? '✅ Nenhum lançamento pendente. Tudo validado!'
+            : 'Nenhum lançamento encontrado para este filtro.'}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {lancamentos.map(item => {
+            const sb = STATUS_BADGE[item.status] || STATUS_BADGE.pendente;
+            return (
+              <div key={item.id}
+                className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-bold text-white text-sm bg-slate-800 px-2 py-0.5 rounded border border-slate-700" translate="no">
+                      {item.veiculo}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${sb.cls}`}>
+                      {sb.label}
+                    </span>
+                    <span className="text-xs text-slate-400">📅 {item.data}</span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Motorista: <strong className="text-blue-300">{item.motorista}</strong>
+                    <span className="ml-2 text-slate-500">|</span>
+                    <span className="ml-2 uppercase font-semibold text-slate-400">{item.tipo_controle}</span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Início: <span className="text-slate-200">{Number(item.valor_inicial).toLocaleString('pt-BR')}</span>
+                    <span className="mx-1">→</span>
+                    Final: <span className="text-slate-200">{Number(item.valor_final).toLocaleString('pt-BR')}</span>
+                    <span className="mx-1">|</span>
+                    <strong className="text-emerald-400">
+                      Total: {Number(item.total_recorrido).toLocaleString('pt-BR')} {item.tipo_controle === 'km' ? 'km' : 'h'}
+                    </strong>
+                  </p>
+                </div>
+
+                {item.status === 'pendente' && (
+                  <div className="flex gap-2 w-full md:w-auto shrink-0">
+                    <button onClick={() => aprovar(item.id)}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-colors">
+                      <CheckCircle size={13} /> Aprovar
+                    </button>
+                    <button onClick={() => rejeitar(item.id)}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-2 rounded-lg text-xs border border-rose-500/30 transition-colors">
+                      <XCircle size={13} /> Rejeitar
+                    </button>
+                  </div>
+                )}
+
+                {item.status !== 'pendente' && (
+                  <div className="shrink-0">
+                    {item.status === 'aprovado'
+                      ? <CheckCircle size={20} className="text-emerald-400" />
+                      : <XCircle size={20} className="text-rose-400" />}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
