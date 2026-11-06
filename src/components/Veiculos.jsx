@@ -4,7 +4,7 @@ import { Truck, Plus, RefreshCw, Edit2, Save, X, ToggleLeft, ToggleRight } from 
 import Modal from './Modal'
 import StatusBadge from './StatusBadge'
 
-const TIPOS = ['Caminhão', 'Van', 'Caminhonete', 'Moto', 'Outro']
+const TIPOS = ['Caminhão Toco','Caminhão Truck','Caminhão','Cavalo Mecânico','Muck','Container','Acello','HR / Van','Carro','Outros']
 const MOTIVOS_INATIVACAO = ['Vendido', 'Manutenção Longa', 'Sinistro', 'Aposentado', 'Outro']
 const EMPTY = {
   codigo_vda: '', placa: '', descricao: '',
@@ -56,7 +56,7 @@ function VeiculoModal({ row, onClose, onSaved }) {
           <div className="col-span-2">
             <label className="block text-xs text-gray-400 mb-1">Descrição (marca/modelo)</label>
             <input value={form.descricao || ''} onChange={e => set('descricao', e.target.value)}
-              placeholder="Ex: IVECO DAILY 70C17"
+              placeholder="Ex: VW CONSTELLATION 13.190"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
           </div>
           <div>
@@ -252,7 +252,7 @@ export default function Veiculos() {
                 {['Código VDA', 'Placa', 'Descrição', 'Tipo', 'Status', abaAtiva === 'historico' ? 'Motivo' : '', 'Ações']
                   .filter(Boolean)
                   .map(h => (
-                    <th key={h} className="text-left text-xs text-gray-500 font-medium px-4 py-3">{h}</th>
+                    <th key={h} className="text-left text-sm text-gray-400 font-semibold px-4 py-4">{h}</th>
                   ))}
               </tr>
             </thead>
@@ -266,13 +266,13 @@ export default function Veiculos() {
               )}
               {filtered.map(r => (
                 <tr key={r.id} className={`border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors ${r.status_operacional !== 'Ativo' ? 'opacity-60' : ''}`}>
-                  <td className="px-4 py-3 font-medium text-white">{r.codigo_vda}</td>
-                  <td className="px-4 py-3 text-gray-300 font-mono text-xs">{r.placa || <span className="text-gray-600">—</span>}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{r.descricao || <span className="text-gray-600">—</span>}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{r.tipo_veiculo}</td>
-                  <td className="px-4 py-3"><StatusBadge status={r.status_operacional} /></td>
+                  <td className="px-4 py-4 font-semibold text-white text-base" translate="no">{r.codigo_vda}</td>
+                  <td className="px-4 py-4 text-gray-300 font-mono text-sm" translate="no">{r.placa || <span className="text-gray-600">—</span>}</td>
+                  <td className="px-4 py-4 text-gray-300 text-sm" translate="no">{r.descricao || <span className="text-gray-600">—</span>}</td>
+                  <td className="px-4 py-4 text-gray-300 text-sm" translate="no">{r.tipo_veiculo}</td>
+                  <td className="px-4 py-4"><StatusBadge status={r.status_operacional} /></td>
                   {abaAtiva === 'historico' && (
-                    <td className="px-4 py-3 text-xs text-yellow-400">{r.motivo_inativacao || '—'}</td>
+                    <td className="px-4 py-4 text-sm text-yellow-400" translate="no">{r.motivo_inativacao || '—'}</td>
                   )}
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
