@@ -43,7 +43,14 @@ export default function StatusDiarioFlyer() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const ch = supabase.channel('flyer-ch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_veiculos' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_status_diario' }, load)
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [])
 
   async function downloadPNG() {
     setDownloading(true)
