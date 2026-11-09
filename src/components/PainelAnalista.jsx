@@ -11,6 +11,14 @@ function fmtData(d) {
   const [y, m, dia] = d.split('-');
   return `${dia}/${m}/${y}`;
 }
+function diasFora(lanc) {
+  if (!lanc) return 0;
+  const ref = lanc.hora_saida || (lanc.data ? lanc.data + 'T00:00:00' : null);
+  if (!ref) return 0;
+  const saida = new Date(ref);
+  const agora = new Date();
+  return Math.max(0, Math.floor((agora - saida) / 86400000));
+}
 
 const MODAL_EVENTO_VAZIO = {
   veiculo: '', nome_evento: '', local_evento: '', data: new Date().toISOString().slice(0, 10),
@@ -105,7 +113,6 @@ export default function PainelAnalista() {
     setSalvando(true);
 
     const obs = [
-      evento.nome_evento,
       evento.local_evento && `Local: ${evento.local_evento}`,
       evento.retorno_previsto && `Retorno previsto: ${fmtData(evento.retorno_previsto)}`,
       evento.observacao,
@@ -118,6 +125,9 @@ export default function PainelAnalista() {
       status: 'pendente',
       motorista: evento.motorista || 'Analista',
       km_saida: evento.km_saida ? Number(evento.km_saida) : null,
+      nome_evento: evento.nome_evento || null,
+      local_evento: evento.local_evento || null,
+      retorno_previsto: evento.retorno_previsto || null,
       observacao: obs || null,
     }]);
 
@@ -199,12 +209,18 @@ export default function PainelAnalista() {
     setSalvando(true);
 
     const obs = classificar.tipo === 'evento'
-      ? [classificar.nome_evento, classificar.local_evento && `Local: ${classificar.local_evento}`, classificar.retorno_previsto && `Retorno previsto: ${fmtData(classificar.retorno_previsto)}`].filter(Boolean).join(' · ')
+      ? [classificar.local_evento && `Local: ${classificar.local_evento}`, classificar.retorno_previsto && `Retorno previsto: ${fmtData(classificar.retorno_previsto)}`].filter(Boolean).join(' · ')
       : null;
+
+    const eventoFields = classificar.tipo === 'evento' ? {
+      nome_evento: classificar.nome_evento || null,
+      local_evento: classificar.local_evento || null,
+      retorno_previsto: classificar.retorno_previsto || null,
+    } : {};
 
     const { error } = await supabase
       .from('lancamentos_diarios')
-      .update({ tipo: classificar.tipo, ...(obs ? { observacao: obs } : {}) })
+      .update({ tipo: classificar.tipo, ...(obs ? { observacao: obs } : {}), ...eventoFields })
       .eq('id', classificar.id);
 
     setSalvando(false);
@@ -550,11 +566,46 @@ export default function PainelAnalista() {
                     🏷️ Classificar Saída
                   </button>
                 )}
-                {v.lancRota && v.lancRota.tipo !== 'rota' && (
-                  <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded font-medium ${v.lancRota.tipo === 'evento' ? 'bg-purple-500/20 text-purple-300' : v.lancRota.tipo === 'servico_externo' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-orange-500/20 text-orange-300'}`}>
-                    {v.lancRota.tipo === 'evento' ? '🎉 Evento' : v.lancRota.tipo === 'servico_externo' ? '🔧 Serv. Externo' : '🛠️ Manutenção'}
-                  </span>
-                )}
+                {v.lancRota && v.lancRota.tipo !== 'rota' && (() => {
+                  const tipo = v.lancRota.tipo;
+                  const dias = diasFora(v.lancRota);
+                  const configs = {
+                    evento:          { label: '🎉 EVENTO',        cls: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+                    servico_externo: { label: '🔧 SERV. EXTERNO', cls: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+                    manutencao:      { label: '🛠️ MANUTENÇÃO',    cls: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
+                  };
+                  const cfg = configs[tipo] || configs.evento;
+                  return (
+                    <div className="mt-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded border font-semibold tracking-wide ${cfg.cls}`}>
+                          {cfg.label}
+                        </span>
+                        {dias > 0 && (
+                          <span className="text-xs text-slate-400 font-medium">
+                            {dias === 1 ? '1 dia fora' : `${dias} dias fora`}
+                          </span>
+                        )}
+                      </div>
+                      {tipo === 'evento' && v.lancRota.nome_evento && (
+                        <div className="text-xs text-purple-300 italic">{v.lancRota.nome_evento}{v.lancRota.local_evento ? ` · ${v.lancRota.local_evento}` : ''}</div>
+                      )}
+                      {tipo === 'evento' && v.lancRota.retorno_previsto && (
+                        <div className="text-xs text-slate-400">Retorno previsto: <span className="text-slate-200">{fmtData(v.lancRota.retorno_previsto)}</span></div>
+                      )}
+                      {(tipo === 'manutencao' || tipo === 'servico_externo') && (
+                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                          <Clock size={10} /> Prazo indefinido
+                        </div>
+                      )}
+                      <button
+                        onClick={() => abrirRetorno(v.lancRota)}
+                        className="w-full flex items-center justify-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs font-medium py-1.5 rounded-lg transition-colors">
+                        <CheckCircle size={12} /> Confirmar Retorno
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
