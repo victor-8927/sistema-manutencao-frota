@@ -576,26 +576,31 @@ export default function LancamentosDiarios() {
             );
           })}
 
-          {/* Veículos SEM registro — grid compacto */}
+          {/* Veículos SEM registro — KM vigente do último lançamento */}
           {semRegistro.length > 0 && (
             <div>
-              <p className="text-xs text-slate-600 uppercase tracking-widest font-semibold mb-2 mt-1">
-                Sem registro hoje — {semRegistro.length} veículo{semRegistro.length > 1 ? 's' : ''}
+              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1 mt-1 flex items-center gap-1.5">
+                <Minus size={11} /> Parados / KM Mantido — {semRegistro.length} veículo{semRegistro.length > 1 ? 's' : ''}
               </p>
+              <p className="text-xs text-slate-600 mb-2">KM carregado do último lançamento aprovado — não saíram hoje</p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {semRegistro.map(item => (
                   <div key={`sr-${item.veiculo}`}
                     className="bg-slate-900/50 border border-slate-800/60 rounded-lg px-3 py-2.5 flex flex-col gap-1">
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-bold text-slate-300 text-sm leading-none" translate="no">{item.veiculo}</span>
-                      <Minus size={12} className="text-slate-700 shrink-0" />
+                      <span className="text-xs text-slate-600 border border-slate-700/50 px-1 rounded leading-none">=</span>
                     </div>
                     {item.placa && (
                       <span className="text-xs text-slate-600 leading-none">{item.placa}</span>
                     )}
-                    <span className="text-xs text-slate-600 leading-none">
-                      {item.km_atual ? Number(item.km_atual).toLocaleString('pt-BR') + ' km' : 'KM —'}
-                    </span>
+                    {item.km_atual ? (
+                      <span className="text-xs text-slate-300 leading-none font-medium">
+                        🛣 {Number(item.km_atual).toLocaleString('pt-BR')} km
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-600 leading-none">KM —</span>
+                    )}
                   </div>
                 ))}
               </div>
