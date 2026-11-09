@@ -384,47 +384,47 @@ export default function LancamentosDiarios() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">KM Diário — Validação</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="text-xl font-bold text-white tracking-tight">KM Diário — Validação</h2>
+          <p className="text-sm text-slate-400 mt-0.5">
             Status da frota operacional · {comRegistro}/{totalFrota} veículos com registro
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setModalAberto(true)}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-            <Plus size={13} /> Lançamento Manual
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors">
+            <Plus size={14} /> Lançamento Manual
           </button>
           <button onClick={buscar}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+            <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
       {/* Veículos EM ROTA agora */}
       {emRota.length > 0 && (
-        <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Navigation size={14} className="text-blue-400" />
-            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">
+        <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Navigation size={15} className="text-blue-400" />
+            <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">
               Em Rota Agora — {emRota.length} veículo{emRota.length > 1 ? 's' : ''}
             </span>
           </div>
           <div className="space-y-2">
             {emRota.map(item => (
               <div key={item.id}
-                className="bg-slate-900/60 border border-blue-500/20 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2">
+                className="bg-slate-900/60 border border-blue-500/20 rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <span className="font-bold text-white text-sm" translate="no">{item.veiculo}</span>
-                  <span className="ml-2 text-xs text-slate-400">{item.motorista}</span>
+                  <span className="font-bold text-white text-base" translate="no">{item.veiculo}</span>
+                  <span className="ml-2 text-sm text-slate-400">{item.motorista}</span>
                   {item.motivo && (
                     <span className="ml-2 text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-300">{item.motivo}</span>
                   )}
                 </div>
-                <div className="text-xs text-slate-400">
-                  Saída: <span className="text-slate-200 font-medium">{fmtHora(item.hora_saida)}</span>
+                <div className="text-sm text-slate-400">
+                  Saída: <span className="text-slate-200 font-semibold">{fmtHora(item.hora_saida)}</span>
                   {item.km_saida && (
-                    <> · KM: <span className="text-slate-200 font-medium">{Number(item.km_saida).toLocaleString('pt-BR')}</span></>
+                    <> · KM: <span className="text-slate-200 font-semibold">{Number(item.km_saida).toLocaleString('pt-BR')}</span></>
                   )}
                 </div>
               </div>
@@ -436,35 +436,35 @@ export default function LancamentosDiarios() {
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Pendentes</div>
-          <div className="text-2xl font-black text-amber-400">{pendentes}</div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pendentes</div>
+          <div className="text-3xl font-black text-amber-400">{pendentes}</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Total KM Aprovado</div>
-          <div className="text-2xl font-black text-emerald-400">{totalKm.toLocaleString('pt-BR')} km</div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Total KM Aprovado</div>
+          <div className="text-3xl font-black text-emerald-400">{totalKm.toLocaleString('pt-BR')} km</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Lançamentos</div>
-          <div className="text-2xl font-black text-blue-400">{lancamentos.length}</div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Lançamentos</div>
+          <div className="text-3xl font-black text-blue-400">{lancamentos.length}</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Sem Registro</div>
-          <div className="text-2xl font-black text-slate-500">{semRegistro.length + (filtroStatus === 'todos' ? 0 : 0)}</div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Sem Registro</div>
+          <div className="text-3xl font-black text-slate-400">{semRegistro.length + (filtroStatus === 'todos' ? 0 : 0)}</div>
         </div>
       </div>
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Data</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
           <input type="date" value={filtroData}
             onChange={e => setFiltroData(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" />
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Status</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
           <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
             <option value="todos">Todos</option>
             <option value="pendente">Pendentes</option>
             <option value="aprovado">Aprovados</option>
@@ -474,7 +474,7 @@ export default function LancamentosDiarios() {
         </div>
         {filtroData && (
           <button onClick={() => setFiltroData('')}
-            className="mt-5 text-xs text-slate-500 hover:text-white transition-colors">
+            className="mt-6 text-sm text-slate-500 hover:text-white transition-colors">
             Ver todos os dias
           </button>
         )}
@@ -495,49 +495,49 @@ export default function LancamentosDiarios() {
 
             return (
               <div key={item.id}
-                className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-bold text-white text-sm bg-slate-800 px-2 py-0.5 rounded border border-slate-700" translate="no">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="font-bold text-white text-base bg-slate-800 px-2.5 py-1 rounded border border-slate-700" translate="no">
                       {item.veiculo}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${sb.cls}`}>
+                    <span className={`text-xs px-2.5 py-1 rounded border font-semibold tracking-wide ${sb.cls}`}>
                       {sb.label}
                     </span>
                     {item.tipo && item.tipo !== 'rota' && (
-                      <span className={`text-xs px-2 py-0.5 rounded border font-medium ${(TIPO_BADGE[item.tipo] || TIPO_BADGE.rota).cls}`}>
+                      <span className={`text-xs px-2.5 py-1 rounded border font-semibold ${(TIPO_BADGE[item.tipo] || TIPO_BADGE.rota).cls}`}>
                         {(TIPO_BADGE[item.tipo] || TIPO_BADGE.rota).label}
                       </span>
                     )}
                     {item.motivo && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">
                         {item.motivo}
                       </span>
                     )}
                     {item.observacao && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/50 italic">
+                      <span className="text-xs px-2.5 py-1 rounded bg-slate-800/50 text-slate-400 border border-slate-700/50 italic">
                         {item.observacao}
                       </span>
                     )}
                     <span className="text-xs text-slate-500">📅 {item.data}</span>
                   </div>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-sm text-slate-300">
                     Saída: <strong className="text-blue-300">{item.motorista}</strong>
                     {item.motorista_retorno && item.motorista_retorno !== item.motorista && (
                       <> · Retorno: <strong className="text-purple-300">{item.motorista_retorno}</strong></>
                     )}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm text-slate-400 mt-1">
                     🕐 {fmtHora(item.hora_saida)}
                     {item.hora_retorno && <> → {fmtHora(item.hora_retorno)}</>}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm text-slate-400 mt-1">
                     {usaHorimetro ? '⏱ Hor.' : '🛣 KM'} saída:{' '}
-                    <span className="text-slate-200">
+                    <span className="text-slate-200 font-medium">
                       {item.km_saida ? Number(item.km_saida).toLocaleString('pt-BR') : '—'}
                     </span>
                     {item.km_retorno && (
-                      <> → retorno: <span className="text-slate-200">{Number(item.km_retorno).toLocaleString('pt-BR')}</span></>
+                      <> → retorno: <span className="text-slate-200 font-medium">{Number(item.km_retorno).toLocaleString('pt-BR')}</span></>
                     )}
                     {kmPercorrido > 0 && (
                       <> · <strong className="text-emerald-400">+{kmPercorrido.toLocaleString('pt-BR')} {usaHorimetro ? 'h' : 'km'}</strong></>
@@ -548,12 +548,12 @@ export default function LancamentosDiarios() {
                 {item.status === 'pendente' && (
                   <div className="flex gap-2 w-full md:w-auto shrink-0">
                     <button onClick={() => aprovar(item.id)}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-colors">
-                      <CheckCircle size={13} /> Aprovar
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors">
+                      <CheckCircle size={15} /> Aprovar
                     </button>
                     <button onClick={() => rejeitar(item.id)}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-2 rounded-lg text-xs border border-rose-500/30 transition-colors">
-                      <XCircle size={13} /> Rejeitar
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-4 py-2.5 rounded-lg text-sm border border-rose-500/30 transition-colors">
+                      <XCircle size={15} /> Rejeitar
                     </button>
                   </div>
                 )}
@@ -561,15 +561,15 @@ export default function LancamentosDiarios() {
                 {item.status === 'rejeitado' && (
                   <div className="flex gap-2 w-full md:w-auto shrink-0">
                     <button onClick={() => abrirAjuste(item)}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs border border-cyan-500/30 transition-colors">
-                      <PencilLine size={13} /> Editar + Ajustar
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white px-5 py-2.5 rounded-lg text-sm border border-cyan-500/30 transition-colors">
+                      <PencilLine size={15} /> Editar + Ajustar
                     </button>
                   </div>
                 )}
 
                 {(item.status === 'aprovado' || item.status === 'ajustado') && (
                   <div className="shrink-0">
-                    <CheckCircle size={20} className={item.status === 'ajustado' ? 'text-cyan-400' : 'text-emerald-400'} />
+                    <CheckCircle size={22} className={item.status === 'ajustado' ? 'text-cyan-400' : 'text-emerald-400'} />
                   </div>
                 )}
               </div>
@@ -579,27 +579,27 @@ export default function LancamentosDiarios() {
           {/* Veículos SEM registro — KM vigente do último lançamento */}
           {semRegistro.length > 0 && (
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1 mt-1 flex items-center gap-1.5">
-                <Minus size={11} /> Parados / KM Mantido — {semRegistro.length} veículo{semRegistro.length > 1 ? 's' : ''}
+              <p className="text-sm text-slate-400 font-semibold mb-1 mt-2 flex items-center gap-1.5">
+                <Minus size={13} /> Parados / KM Mantido — {semRegistro.length} veículo{semRegistro.length > 1 ? 's' : ''}
               </p>
-              <p className="text-xs text-slate-600 mb-2">KM carregado do último lançamento aprovado — não saíram hoje</p>
+              <p className="text-xs text-slate-600 mb-3">KM carregado do último lançamento aprovado — não saíram hoje</p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {semRegistro.map(item => (
                   <div key={`sr-${item.veiculo}`}
-                    className="bg-slate-900/50 border border-slate-800/60 rounded-lg px-3 py-2.5 flex flex-col gap-1">
+                    className="bg-slate-900/50 border border-slate-800/60 rounded-lg px-3 py-3 flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-slate-300 text-sm leading-none" translate="no">{item.veiculo}</span>
+                      <span className="font-bold text-slate-200 text-sm leading-none" translate="no">{item.veiculo}</span>
                       <span className="text-xs text-slate-600 border border-slate-700/50 px-1 rounded leading-none">=</span>
                     </div>
                     {item.placa && (
-                      <span className="text-xs text-slate-600 leading-none">{item.placa}</span>
+                      <span className="text-xs text-slate-500 leading-none">{item.placa}</span>
                     )}
                     {item.km_atual ? (
-                      <span className="text-xs text-slate-300 leading-none font-medium">
+                      <span className="text-sm text-slate-300 leading-none font-semibold">
                         🛣 {Number(item.km_atual).toLocaleString('pt-BR')} km
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-600 leading-none">KM —</span>
+                      <span className="text-sm text-slate-600 leading-none">KM —</span>
                     )}
                   </div>
                 ))}
@@ -610,23 +610,23 @@ export default function LancamentosDiarios() {
           {/* Veículos EM MANUTENÇÃO */}
           {emManutencao.length > 0 && (filtroStatus === 'todos') && (
             <div>
-              <p className="text-xs text-orange-500/70 uppercase tracking-widest font-semibold mb-2 mt-1 flex items-center gap-1.5">
-                <Wrench size={11} /> Em Manutenção — {emManutencao.length} veículo{emManutencao.length > 1 ? 's' : ''}
+              <p className="text-sm text-orange-400/80 font-semibold mb-2 mt-2 flex items-center gap-1.5">
+                <Wrench size={13} /> Em Manutenção — {emManutencao.length} veículo{emManutencao.length > 1 ? 's' : ''}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {emManutencao.map(v => (
                   <div key={`manut-${v.id}`}
-                    className="bg-orange-950/20 border border-orange-500/20 rounded-lg px-3 py-2.5 flex flex-col gap-1">
+                    className="bg-orange-950/20 border border-orange-500/20 rounded-lg px-3 py-3 flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-bold text-orange-300 text-sm leading-none" translate="no">{v.codigo_vda}</span>
-                      <Wrench size={11} className="text-orange-500/60 shrink-0" />
+                      <Wrench size={12} className="text-orange-500/60 shrink-0" />
                     </div>
                     {v.placa && <span className="text-xs text-slate-500 leading-none">{v.placa}</span>}
-                    <span className="text-xs text-orange-400/70 leading-none">{v.status_operacional}</span>
+                    <span className="text-xs text-orange-400/80 leading-none font-medium">{v.status_operacional}</span>
                     {v.motivo_manutencao && (
                       <span className="text-xs text-slate-400 leading-none italic">{v.motivo_manutencao}</span>
                     )}
-                    <span className="text-xs text-slate-600 leading-none">
+                    <span className="text-sm text-slate-500 leading-none font-medium">
                       {v.km_atual ? Number(v.km_atual).toLocaleString('pt-BR') + ' km' : 'KM —'}
                     </span>
                   </div>
