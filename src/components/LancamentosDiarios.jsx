@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, CheckCircle, XCircle, Navigation, Minus, Plus, Wrench, CalendarDays, Truck } from 'lucide-react';
+import { RefreshCw, CheckCircle, XCircle, Navigation, Minus, Plus, Wrench, CalendarDays, Truck, PencilLine } from 'lucide-react';
 
 const STATUS_BADGE = {
   pendente:        { label: 'Pendente',        cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
   aprovado:        { label: 'Aprovado',        cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
   rejeitado:       { label: 'Rejeitado',       cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+  ajustado:        { label: '✏️ Ajustado',      cls: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
   em_rota:         { label: 'Em Rota',         cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
   sem_registro:    { label: 'Sem Registro',    cls: 'bg-slate-700/50 text-slate-400 border-slate-600/50' },
 };
@@ -33,6 +34,8 @@ function fmtHora(ts) {
 
 const MODAL_VAZIO = { veiculo: '', tipo: 'rota', km_saida: '', km_retorno: '', observacao: '', data: new Date().toISOString().slice(0, 10) };
 
+const MODAL_AJUSTE_VAZIO = { id: null, veiculo: '', km_saida: '', km_retorno: '', observacao: '' };
+
 export default function LancamentosDiarios() {
   const today = new Date().toISOString().slice(0, 10);
   const [filtroData, setFiltroData] = useState(today);
@@ -45,6 +48,8 @@ export default function LancamentosDiarios() {
   const [modalAberto, setModalAberto] = useState(false);
   const [novoLanc, setNovoLanc] = useState(MODAL_VAZIO);
   const [salvando, setSalvando] = useState(false);
+  const [modalAjuste, setModalAjuste] = useState(MODAL_AJUSTE_VAZIO);
+  const [salvandoAjuste, setSalvandoAjuste] = useState(false);
 
   const buscar = async () => {
     setLoading(true);
@@ -164,6 +169,58 @@ export default function LancamentosDiarios() {
     buscar();
   };
 
+  const abrirAjuste = (item) => {
+    setModalAjuste({
+      id: item.id,
+      veiculo: item.veiculo,
+      km_saida: item.km_saida || '',
+      km_retorno: item.km_retorno || '',
+      observacao: item.observacao || '',
+    });
+  };
+
+  const salvarAjuste = async () => {
+    if (!modalAjuste.id) return;
+    setSalvandoAjuste(true);
+    const kmSaida = modalAjuste.km_saida ? Number(modalAjuste.km_saida) : null;
+    const kmRetorno = modalAjuste.km_retorno ? Number(modalAjuste.km_retorno) : null;
+    const totalRecorrido = kmSaida && kmRetorno ? kmRetorno - kmSaida : null;
+
+    const { error } = await supabase
+      .from('lancamentos_diarios')
+      .update({
+        status: 'ajustado',
+        km_saida: kmSaida,
+        km_retorno: kmRetorno,
+        total_recorrido: totalRecorrido,
+        observacao: modalAjuste.observacao || null,
+      })
+      .eq('id', modalAjuste.id);
+
+    setSalvandoAjuste(false);
+    if (error) { alert('Erro ao ajustar: ' + error.message); return; }
+
+    // Atualiza km_atual no veículo se tem km_retorno
+    if (kmRetorno && modalAjuste.veiculo) {
+      const { data: vei } = await supabase
+        .from('fleet_veiculos')
+        .select('id')
+        .eq('codigo_vda', modalAjuste.veiculo)
+        .single();
+      if (vei?.id) {
+        await supabase.from('fleet_veiculos')
+          .update({ km_atual: kmRetorno, km_atualizado_em: new Date().toISOString() })
+          .eq('id', vei.id);
+        await supabase.from('fleet_controle_oleo')
+          .update({ km_atual: kmRetorno, data_atualizacao: new Date().toISOString() })
+          .eq('veiculo_id', vei.id);
+      }
+    }
+
+    setModalAjuste(MODAL_AJUSTE_VAZIO);
+    buscar();
+  };
+
   // Monta lista completa: lançamentos do dia + veículos sem registro
   const emRotaIds = new Set(emRota.map(r => r.veiculo));
   const lancVeiculos = new Set(lancamentos.map(l => l.veiculo));
@@ -189,6 +246,56 @@ export default function LancamentosDiarios() {
 
   return (
     <div className="space-y-4">
+
+      {/* Modal Ajuste de Lançamento Rejeitado */}
+      {modalAjuste.id && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <PencilLine size={16} className="text-cyan-400" /> Ajustar Lançamento
+              </h3>
+              <button onClick={() => setModalAjuste(MODAL_AJUSTE_VAZIO)}
+                className="text-slate-500 hover:text-white text-xl leading-none">×</button>
+            </div>
+            <p className="text-xs text-slate-400">Veículo: <strong className="text-white">{modalAjuste.veiculo}</strong> — após salvar o status ficará <span className="text-cyan-300 font-semibold">Ajustado</span> e o KM atual será atualizado.</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">KM Saída</label>
+                  <input type="number" value={modalAjuste.km_saida}
+                    onChange={e => setModalAjuste(p => ({ ...p, km_saida: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">KM Retorno</label>
+                  <input type="number" value={modalAjuste.km_retorno}
+                    onChange={e => setModalAjuste(p => ({ ...p, km_retorno: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Observação do ajuste</label>
+                <input type="text" value={modalAjuste.observacao}
+                  onChange={e => setModalAjuste(p => ({ ...p, observacao: e.target.value }))}
+                  placeholder="ex: KM corrigido pelo assistente"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={salvarAjuste} disabled={salvandoAjuste}
+                className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors">
+                {salvandoAjuste ? 'Salvando...' : '✏️ Salvar Ajuste'}
+              </button>
+              <button onClick={() => setModalAjuste(MODAL_AJUSTE_VAZIO)}
+                className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Lançamento Manual */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -362,6 +469,7 @@ export default function LancamentosDiarios() {
             <option value="pendente">Pendentes</option>
             <option value="aprovado">Aprovados</option>
             <option value="rejeitado">Rejeitados</option>
+            <option value="ajustado">Ajustados</option>
           </select>
         </div>
         {filtroData && (
@@ -450,11 +558,18 @@ export default function LancamentosDiarios() {
                   </div>
                 )}
 
-                {item.status !== 'pendente' && (
+                {item.status === 'rejeitado' && (
+                  <div className="flex gap-2 w-full md:w-auto shrink-0">
+                    <button onClick={() => abrirAjuste(item)}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white px-4 py-2 rounded-lg text-xs border border-cyan-500/30 transition-colors">
+                      <PencilLine size={13} /> Editar + Ajustar
+                    </button>
+                  </div>
+                )}
+
+                {(item.status === 'aprovado' || item.status === 'ajustado') && (
                   <div className="shrink-0">
-                    {item.status === 'aprovado'
-                      ? <CheckCircle size={20} className="text-emerald-400" />
-                      : <XCircle size={20} className="text-rose-400" />}
+                    <CheckCircle size={20} className={item.status === 'ajustado' ? 'text-cyan-400' : 'text-emerald-400'} />
                   </div>
                 )}
               </div>
