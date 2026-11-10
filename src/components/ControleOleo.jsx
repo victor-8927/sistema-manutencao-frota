@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Droplets, RefreshCw, Edit2, Trash2, Save, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { Droplets, RefreshCw, Edit2, Trash2, Save, AlertTriangle, CheckCircle, Clock, Timer, MessageSquare } from 'lucide-react'
 import Modal from './Modal'
 import ConfirmDialog from './ConfirmDialog'
 import StatusBadge from './StatusBadge'
@@ -16,6 +16,7 @@ function calcStatus(r) {
 }
 
 function fmtKm(v) { return (v ?? 0).toLocaleString('pt-BR') + ' km' }
+function fmtDate(v) { if (!v) return '—'; const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') }
 
 function ProgressBar({ pct, color }) {
   const bg = { red: 'bg-red-500', yellow: 'bg-yellow-400', green: 'bg-emerald-500' }[color]
@@ -36,7 +37,10 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
     km_ultima_troca:   row?.km_ultima_troca   ?? 0,
     km_oleo_limite:    row?.km_oleo_limite    ?? 10000,
     observacao:        row?.observacao        ?? '',
+    usa_horimetro:     row?.usa_horimetro     ?? false,
+    horimetro_limite:  row?.horimetro_limite  ?? 600,
   })
+  const kmProximaTroca = Number(form.km_ultima_troca) + Number(form.km_oleo_limite)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -48,9 +52,12 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
       veiculo_id:        form.veiculo_id,
       data_ultima_troca: form.data_ultima_troca || null,
       km_ultima_troca:   Number(form.km_ultima_troca),
+      km_proxima_troca:  kmProximaTroca,
       km_oleo_limite:    Number(form.km_oleo_limite),
       observacao:        form.observacao || null,
-      data_atualizacao:  new Date().toISOString(),
+      usa_horimetro:     form.usa_horimetro,
+      horimetro_limite:  form.usa_horimetro ? Number(form.horimetro_limite) : null,
+      data_atualizacao:  new Date().toISOString().split('T')[0],
       // km_atual NÃO é enviado — vem de fleet_veiculos via PWA/lançamento aprovado
     }
     const { error } = await (isNew
@@ -101,6 +108,23 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
             <input type="number" value={form.km_oleo_limite} onChange={e => set('km_oleo_limite', e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
           </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Próxima Troca <span className="text-gray-600">(calculado)</span></label>
+            <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">
+              {kmProximaTroca.toLocaleString('pt-BR')} km
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <input type="checkbox" id="usa_hor" checked={form.usa_horimetro} onChange={e => set('usa_horimetro', e.target.checked)}
+            className="w-4 h-4 accent-blue-500" />
+          <label htmlFor="usa_hor" className="text-sm text-gray-300 flex items-center gap-1.5">
+            <Timer size={14} className="text-blue-400" /> Controle por Horímetro
+          </label>
+          {form.usa_horimetro && (
+            <input type="number" value={form.horimetro_limite} onChange={e => set('horimetro_limite', e.target.value)}
+              placeholder="Horas" className="ml-auto w-24 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white" />
+          )}
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Observação</label>
@@ -205,44 +229,76 @@ export default function ControleOleo() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {['Veículo','Placa','KM Atual','KM Ult. Troca','Rodado','Saldo','Status','Ações'].map(h => (
-                  <th key={h} className="text-left text-xs text-gray-500 font-medium px-4 py-3">{h}</th>
+                {['Veículo','Placa','KM Atual','Data Troca','KM Ult. Troca','Próx. Troca','Intervalo','Rodado','Saldo','Atualizado','Status','Ações'].map(h => (
+                  <th key={h} className="text-left text-xs text-gray-500 font-medium px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="text-center text-gray-500 py-10">Nenhum registro encontrado</td></tr>
+                <tr><td colSpan={12} className="text-center text-gray-500 py-10">Nenhum registro encontrado</td></tr>
               )}
               {filtered.map(r => {
-                const kmAtual = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
+                const kmAtual  = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
                 const kmViaPwa = r.fleet_veiculos?.km_atual != null
-                const st   = calcStatus(r)
-                const rod  = kmAtual - (r.km_ultima_troca || 0)
-                const saldo = (r.km_oleo_limite || 10000) - rod
+                const st       = calcStatus(r)
+                const rod      = kmAtual - (r.km_ultima_troca || 0)
+                const lim      = r.km_oleo_limite || 10000
+                const saldo    = lim - rod
+                const proxTroca = (r.km_ultima_troca || 0) + lim
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-white">{r.fleet_veiculos?.codigo_vda ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-400">{r.fleet_veiculos?.placa ?? '—'}</td>
+                    {/* Veículo */}
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-white whitespace-nowrap">{r.fleet_veiculos?.codigo_vda ?? '—'}</span>
+                        {r.usa_horimetro && (
+                          <span className="flex items-center gap-0.5 text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            <Timer size={10} /> {r.horimetro_limite}h
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {/* Placa */}
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.fleet_veiculos?.placa ?? '—'}</td>
+                    {/* KM Atual */}
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-gray-300">{fmtKm(kmAtual)}</span>
                       {kmViaPwa && (
                         <span className="ml-1.5 text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">PWA</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-300">{fmtKm(r.km_ultima_troca)}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmtKm(rod)}</td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
+                    {/* Data Troca */}
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{fmtDate(r.data_ultima_troca)}</td>
+                    {/* KM Ult. Troca */}
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{fmtKm(r.km_ultima_troca)}</td>
+                    {/* Próx. Troca */}
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{fmtKm(proxTroca)}</td>
+                    {/* Intervalo */}
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{lim.toLocaleString('pt-BR')} km</td>
+                    {/* Rodado */}
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{fmtKm(rod)}</td>
+                    {/* Saldo */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="space-y-1 min-w-[90px]">
                         <span className={`text-xs font-medium ${saldo < 0 ? 'text-red-400' : 'text-gray-300'}`}>
                           {saldo < 0 ? `+${fmtKm(Math.abs(saldo))}` : fmtKm(saldo)}
                         </span>
                         <ProgressBar pct={st.pct} color={st.color} />
                       </div>
                     </td>
-                    <td className="px-4 py-3"><StatusBadge status={st.label} /></td>
+                    {/* Atualizado */}
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">{fmtDate(r.data_atualizacao)}</td>
+                    {/* Status */}
+                    <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={st.label} /></td>
+                    {/* Ações */}
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
+                        {r.observacao && (
+                          <span title={r.observacao} className="p-1.5 text-gray-500 cursor-help">
+                            <MessageSquare size={14} />
+                          </span>
+                        )}
                         <button onClick={() => setModalRow(r)}
                           className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Edit2 size={14} /></button>
                         <button onClick={() => setDeleteRow(r)}
