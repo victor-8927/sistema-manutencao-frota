@@ -28,7 +28,7 @@ const MODAL_RETORNO_VAZIO = { id: null, veiculo: '', km_retorno: '', observacao:
 const MODAL_SEM_MOV_VAZIO = { veiculo: '', data: new Date().toISOString().slice(0, 10), motivo: '' };
 const MODAL_CLASSIFICAR_VAZIO = { id: null, veiculo: '', tipo: 'evento', nome_evento: '', local_evento: '', retorno_previsto: '' };
 const amanha = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
-const MODAL_ROTA_VAZIO = { veiculo: '', motorista: '', destino: '', km_saida: '', observacao: '', data_saida: amanha() };
+const MODAL_ROTA_VAZIO = { veiculo: '', motorista: '', destino: '', km_saida: '', observacao: '', data_saida: amanha(), ordem_carga: '' };
 
 export default function PainelAnalista() {
   const [frota, setFrota] = useState([]);
@@ -52,10 +52,42 @@ export default function PainelAnalista() {
   const [rota, setRota] = useState(MODAL_ROTA_VAZIO);
 
   const [salvando, setSalvando] = useState(false);
+
+  // Motoristas
+  const [motoristas, setMotoristas] = useState([]);
+  const [novoMotorista, setNovoMotorista] = useState('');
+  const [cadastrandoMotorista, setCadastrandoMotorista] = useState(false);
+  const [salvandoMotorista, setSalvandoMotorista] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState(new Date().toISOString().slice(0, 10));
 
   const hoje = new Date().toISOString().slice(0, 10);
   const isHoje = dataSelecionada === hoje;
+
+  // Carregar motoristas cadastrados
+  useEffect(() => {
+    supabase.from('fleet_motoristas').select('id, nome').eq('ativo', true).order('nome')
+      .then(({ data }) => setMotoristas(data || []));
+  }, []);
+
+  const salvarNovoMotorista = async () => {
+    if (!novoMotorista.trim()) return;
+    setSalvandoMotorista(true);
+    const { data, error } = await supabase.from('fleet_motoristas')
+      .insert([{ nome: novoMotorista.trim(), ativo: true }])
+      .select('id, nome').single();
+    setSalvandoMotorista(false);
+    if (error) { alert('Erro ao cadastrar: ' + error.message); return; }
+    setMotoristas(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)));
+    setRota(p => ({ ...p, motorista: data.nome }));
+    setNovoMotorista('');
+    setCadastrandoMotorista(false);
+  };
+
+  // Abrir modal rota com veículo pré-selecionado
+  const abrirModalRota = (codigoVda = '') => {
+    setRota({ ...MODAL_ROTA_VAZIO, veiculo: codigoVda });
+    setModalRota(true);
+  };
 
   const mudarDia = (delta) => {
     const d = new Date(dataSelecionada + 'T12:00:00');
@@ -183,6 +215,7 @@ export default function PainelAnalista() {
       motivo: rota.destino || 'Rota',
       km_saida: rota.km_saida ? Number(rota.km_saida) : null,
       observacao: rota.observacao || null,
+      ordem_carga: rota.ordem_carga || null,
       data_planejamento: dataSaida !== hoje ? dataSaida : null,
     }]);
 
@@ -328,13 +361,41 @@ export default function PainelAnalista() {
                   ))}
                 </select>
               </div>
+              {/* Motorista */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Motorista *</label>
-                <input type="text" value={rota.motorista}
-                  onChange={e => setRota(p => ({ ...p, motorista: e.target.value }))}
-                  placeholder="Nome do motorista"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+                {!cadastrandoMotorista ? (
+                  <div className="flex gap-2">
+                    <select value={rota.motorista} onChange={e => setRota(p => ({ ...p, motorista: e.target.value }))}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                      <option value="">Selecione o motorista...</option>
+                      {motoristas.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+                    </select>
+                    <button type="button" onClick={() => setCadastrandoMotorista(true)}
+                      title="Cadastrar novo motorista"
+                      className="px-3 py-2 bg-slate-700 hover:bg-blue-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors">
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input type="text" value={novoMotorista} onChange={e => setNovoMotorista(e.target.value)}
+                      placeholder="Nome completo do motorista"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') salvarNovoMotorista(); if (e.key === 'Escape') { setCadastrandoMotorista(false); setNovoMotorista(''); } }}
+                      className="flex-1 bg-slate-800 border border-blue-500 rounded-lg px-3 py-2 text-sm text-white focus:outline-none" />
+                    <button type="button" onClick={salvarNovoMotorista} disabled={salvandoMotorista}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-bold transition-colors">
+                      {salvandoMotorista ? '...' : '✓'}
+                    </button>
+                    <button type="button" onClick={() => { setCadastrandoMotorista(false); setNovoMotorista(''); }}
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-sm transition-colors">✕</button>
+                  </div>
+                )}
+                {cadastrandoMotorista && <p className="text-xs text-blue-400 mt-1">Enter para salvar · Esc para cancelar</p>}
               </div>
+
+              {/* Destino */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Destino / Zona</label>
                 <input type="text" value={rota.destino}
@@ -342,6 +403,17 @@ export default function PainelAnalista() {
                   placeholder="ex: ZONA CENTRO NORTE, ROTA 802"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
               </div>
+
+              {/* Ordem de Carga */}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Ordem de Carga</label>
+                <input type="text" value={rota.ordem_carga}
+                  onChange={e => setRota(p => ({ ...p, ordem_carga: e.target.value }))}
+                  placeholder="ex: OC-001, OC-2024-802"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+
+              {/* Data */}
               <div>
                 <label className="block text-xs text-slate-400 mb-1">📅 Data de Saída</label>
                 <input type="date" value={rota.data_saida}
@@ -351,18 +423,22 @@ export default function PainelAnalista() {
                   {rota.data_saida === hoje ? '⚡ Saindo agora — será marcado Em Rota' : '📋 Planejamento — ficará como Pendente até o dia'}
                 </p>
               </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">KM Saída <span className="text-slate-600">(opcional — pode informar ao sair)</span></label>
-                <input type="number" value={rota.km_saida}
-                  onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
-                  placeholder="ex: 325000"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Observação</label>
-                <input type="text" value={rota.observacao}
-                  onChange={e => setRota(p => ({ ...p, observacao: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+
+              {/* KM + Observação */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">KM Saída <span className="text-slate-600">(opcional)</span></label>
+                  <input type="number" value={rota.km_saida}
+                    onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
+                    placeholder="ex: 325000"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Observação</label>
+                  <input type="text" value={rota.observacao}
+                    onChange={e => setRota(p => ({ ...p, observacao: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+                </div>
               </div>
             </div>
             <div className="flex gap-2 pt-1">
@@ -653,7 +729,7 @@ export default function PainelAnalista() {
           )}
           {isHoje && (
             <>
-              <button onClick={() => setModalRota(true)}
+              <button onClick={() => abrirModalRota()}
                 className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
                 <Navigation size={13} /> Lançar Rota
               </button>
@@ -724,7 +800,8 @@ export default function PainelAnalista() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {emRotaList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-5 flex flex-col gap-3">
+                onClick={() => v.lancRota && abrirRetorno(v.lancRota)}
+                className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-5 flex flex-col gap-3 cursor-pointer hover:border-blue-400/70 hover:bg-blue-900/40 active:scale-95 transition-all">
                 <div className="flex items-center justify-between">
                   <span className="font-black text-white text-2xl tracking-wide" translate="no">{v.cod}</span>
                   <span className="text-sm bg-blue-500/30 text-blue-200 border border-blue-400/50 px-3 py-1 rounded-lg font-bold">Em Rota</span>
@@ -861,7 +938,8 @@ export default function PainelAnalista() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {disponivelList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-1.5">
+                onClick={() => isHoje && abrirModalRota(v.cod)}
+                className={`bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-1.5 transition-all ${isHoje ? 'cursor-pointer hover:border-blue-500/60 hover:bg-blue-950/30 active:scale-95' : ''}`}>
                 <span className="font-black text-white text-xl leading-none" translate="no">{v.cod}</span>
                 {v.fleet_veiculos?.placa && <span className="text-sm text-slate-300 font-semibold leading-none">{v.fleet_veiculos.placa}</span>}
                 <span className="text-sm text-slate-400 font-medium leading-none">
