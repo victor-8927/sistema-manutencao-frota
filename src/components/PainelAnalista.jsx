@@ -27,7 +27,8 @@ const MODAL_EVENTO_VAZIO = {
 const MODAL_RETORNO_VAZIO = { id: null, veiculo: '', km_retorno: '', observacao: '' };
 const MODAL_SEM_MOV_VAZIO = { veiculo: '', data: new Date().toISOString().slice(0, 10), motivo: '' };
 const MODAL_CLASSIFICAR_VAZIO = { id: null, veiculo: '', tipo: 'evento', nome_evento: '', local_evento: '', retorno_previsto: '' };
-const MODAL_ROTA_VAZIO = { veiculo: '', motorista: '', destino: '', km_saida: '', observacao: '' };
+const amanha = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
+const MODAL_ROTA_VAZIO = { veiculo: '', motorista: '', destino: '', km_saida: '', observacao: '', data_saida: amanha() };
 
 export default function PainelAnalista() {
   const [frota, setFrota] = useState([]);
@@ -167,16 +168,22 @@ export default function PainelAnalista() {
     if (!rota.motorista) { alert('Informe o motorista.'); return; }
     setSalvando(true);
 
+    // Suporte a planejamento noturno: data pode ser hoje ou amanhã
+    // hora_saida só é preenchida se for hoje; planejamento futuro fica sem hora_saida
+    const dataSaida = rota.data_saida || hoje;
+    const ehHoje = dataSaida === hoje;
+
     const { error } = await supabase.from('lancamentos_diarios').insert([{
       veiculo: rota.veiculo,
       tipo: 'rota',
-      data: hoje,
-      status: 'em_rota',
-      hora_saida: new Date().toISOString(),
+      data: dataSaida,
+      status: ehHoje ? 'em_rota' : 'pendente',
+      hora_saida: ehHoje ? new Date().toISOString() : null,
       motorista: rota.motorista,
       motivo: rota.destino || 'Rota',
       km_saida: rota.km_saida ? Number(rota.km_saida) : null,
       observacao: rota.observacao || null,
+      data_planejamento: dataSaida !== hoje ? dataSaida : null,
     }]);
 
     setSalvando(false);
@@ -336,7 +343,16 @@ export default function PainelAnalista() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">KM Saída</label>
+                <label className="block text-xs text-slate-400 mb-1">📅 Data de Saída</label>
+                <input type="date" value={rota.data_saida}
+                  onChange={e => setRota(p => ({ ...p, data_saida: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+                <p className="text-xs text-slate-500 mt-1">
+                  {rota.data_saida === hoje ? '⚡ Saindo agora — será marcado Em Rota' : '📋 Planejamento — ficará como Pendente até o dia'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">KM Saída <span className="text-slate-600">(opcional — pode informar ao sair)</span></label>
                 <input type="number" value={rota.km_saida}
                   onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
                   placeholder="ex: 325000"
@@ -352,7 +368,7 @@ export default function PainelAnalista() {
             <div className="flex gap-2 pt-1">
               <button onClick={salvarRota} disabled={salvando}
                 className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors">
-                {salvando ? 'Salvando...' : '🚛 Lançar Saída → Em Rota'}
+                {salvando ? 'Salvando...' : rota.data_saida === hoje ? '🚛 Lançar Saída → Em Rota' : '📋 Planejar Rota → Pendente'}
               </button>
               <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
                 className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-colors">
