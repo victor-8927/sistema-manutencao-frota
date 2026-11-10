@@ -27,6 +27,7 @@ const MODAL_EVENTO_VAZIO = {
 const MODAL_RETORNO_VAZIO = { id: null, veiculo: '', km_retorno: '', observacao: '' };
 const MODAL_SEM_MOV_VAZIO = { veiculo: '', data: new Date().toISOString().slice(0, 10), motivo: '' };
 const MODAL_CLASSIFICAR_VAZIO = { id: null, veiculo: '', tipo: 'evento', nome_evento: '', local_evento: '', retorno_previsto: '' };
+const MODAL_ROTA_VAZIO = { veiculo: '', motorista: '', destino: '', km_saida: '', observacao: '' };
 
 export default function PainelAnalista() {
   const [frota, setFrota] = useState([]);
@@ -45,6 +46,9 @@ export default function PainelAnalista() {
 
   const [modalClassificar, setModalClassificar] = useState(false);
   const [classificar, setClassificar] = useState(MODAL_CLASSIFICAR_VAZIO);
+
+  const [modalRota, setModalRota] = useState(false);
+  const [rota, setRota] = useState(MODAL_ROTA_VAZIO);
 
   const [salvando, setSalvando] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState(new Date().toISOString().slice(0, 10));
@@ -154,6 +158,31 @@ export default function PainelAnalista() {
     if (error) { alert('Erro: ' + error.message); return; }
     setModalEvento(false);
     setEvento(MODAL_EVENTO_VAZIO);
+    buscar();
+  };
+
+  // Lançar rota diária
+  const salvarRota = async () => {
+    if (!rota.veiculo) { alert('Selecione o veículo.'); return; }
+    if (!rota.motorista) { alert('Informe o motorista.'); return; }
+    setSalvando(true);
+
+    const { error } = await supabase.from('lancamentos_diarios').insert([{
+      veiculo: rota.veiculo,
+      tipo: 'rota',
+      data: hoje,
+      status: 'em_rota',
+      hora_saida: new Date().toISOString(),
+      motorista: rota.motorista,
+      motivo: rota.destino || 'Rota',
+      km_saida: rota.km_saida ? Number(rota.km_saida) : null,
+      observacao: rota.observacao || null,
+    }]);
+
+    setSalvando(false);
+    if (error) { alert('Erro ao lançar rota: ' + error.message); return; }
+    setModalRota(false);
+    setRota(MODAL_ROTA_VAZIO);
     buscar();
   };
 
@@ -269,6 +298,70 @@ export default function PainelAnalista() {
 
   return (
     <div className="space-y-5">
+
+      {/* Modal Lançar Rota */}
+      {modalRota && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Navigation size={16} className="text-blue-400" /> Lançar Rota do Dia
+              </h3>
+              <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
+                className="text-slate-500 hover:text-white text-xl leading-none">×</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Veículo *</label>
+                <select value={rota.veiculo} onChange={e => setRota(p => ({ ...p, veiculo: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                  <option value="">Selecione...</option>
+                  {veiculosDisponiveis.map(v => (
+                    <option key={v.id} value={v.codigo_vda}>{v.codigo_vda} {v.placa ? `· ${v.placa}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Motorista *</label>
+                <input type="text" value={rota.motorista}
+                  onChange={e => setRota(p => ({ ...p, motorista: e.target.value }))}
+                  placeholder="Nome do motorista"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Destino / Zona</label>
+                <input type="text" value={rota.destino}
+                  onChange={e => setRota(p => ({ ...p, destino: e.target.value }))}
+                  placeholder="ex: ZONA CENTRO NORTE, ROTA 802"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">KM Saída</label>
+                <input type="number" value={rota.km_saida}
+                  onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
+                  placeholder="ex: 325000"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Observação</label>
+                <input type="text" value={rota.observacao}
+                  onChange={e => setRota(p => ({ ...p, observacao: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={salvarRota} disabled={salvando}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors">
+                {salvando ? 'Salvando...' : '🚛 Lançar Saída → Em Rota'}
+              </button>
+              <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
+                className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Evento */}
       {modalEvento && (
@@ -539,6 +632,10 @@ export default function PainelAnalista() {
           )}
           {isHoje && (
             <>
+              <button onClick={() => setModalRota(true)}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+                <Navigation size={13} /> Lançar Rota
+              </button>
               <button onClick={() => setModalEvento(true)}
                 className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
                 <CalendarDays size={13} /> Lançar Evento
