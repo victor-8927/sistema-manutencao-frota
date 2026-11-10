@@ -604,9 +604,14 @@ export default function PainelAnalista() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white">Painel do Analista</h2>
-          <p className="text-xs text-slate-400">
-            Controle de distribuição · {frota.length} veículos · {emRotaList.length} em rota agora
+          <div className="flex items-center gap-3 mb-1">
+            <span className="text-cyan-300 text-base font-black tracking-widest uppercase">GELOCRIM</span>
+            <span className="text-slate-500 text-sm">·</span>
+            <span className="text-slate-300 text-sm font-bold uppercase tracking-wider">Distribuição</span>
+          </div>
+          <h2 className="text-3xl font-black text-white leading-tight">Painel do Analista</h2>
+          <p className="text-base text-slate-300 mt-1 font-semibold">
+            {frota.length} veículos · <span className="text-blue-300 font-black">{emRotaList.length} em rota agora</span>
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -664,47 +669,59 @@ export default function PainelAnalista() {
 
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4">
-          <div className="text-xs text-blue-400 mb-1">Em Rota Agora</div>
-          <div className="text-2xl font-black text-blue-300">{emRotaList.length}</div>
+        <div className="bg-blue-950/50 border border-blue-500/40 rounded-2xl p-5">
+          <div className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-1.5">
+            <Navigation size={14} /> Em Rota
+          </div>
+          <div className="text-5xl font-black text-blue-300 leading-none">{emRotaList.length}</div>
+          <div className="text-xs text-blue-500 mt-2">veículos circulando</div>
         </div>
-        <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-4">
-          <div className="text-xs text-purple-400 mb-1">Em Evento</div>
-          <div className="text-2xl font-black text-purple-300">{eventoList.length}</div>
+        <div className="bg-purple-950/50 border border-purple-500/40 rounded-2xl p-5">
+          <div className="text-sm font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
+            <CalendarDays size={14} /> Em Evento
+          </div>
+          <div className="text-5xl font-black text-purple-300 leading-none">{eventoList.length}</div>
+          <div className="text-xs text-purple-500 mt-2">eventos ativos</div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Disponíveis</div>
-          <div className="text-2xl font-black text-slate-300">{disponivelList.length}</div>
+        <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-5">
+          <div className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-1.5">
+            <Truck size={14} /> Disponíveis
+          </div>
+          <div className="text-5xl font-black text-emerald-300 leading-none">{disponivelList.length}</div>
+          <div className="text-xs text-emerald-600 mt-2">prontos para sair</div>
         </div>
-        <div className="bg-orange-950/30 border border-orange-500/20 rounded-xl p-4">
-          <div className="text-xs text-orange-400 mb-1">Manutenção</div>
-          <div className="text-2xl font-black text-orange-300">{manutencaoList.length}</div>
+        <div className="bg-orange-950/40 border border-orange-500/30 rounded-2xl p-5">
+          <div className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-1.5">
+            <Clock size={14} /> Manutenção
+          </div>
+          <div className="text-5xl font-black text-orange-300 leading-none">{manutencaoList.length}</div>
+          <div className="text-xs text-orange-600 mt-2">indisponíveis</div>
         </div>
       </div>
 
       {/* Em Rota Agora */}
       {emRotaList.length > 0 && (
         <section>
-          <p className="text-xs text-blue-400 uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
-            <Navigation size={11} /> Em Rota Agora — {emRotaList.length}
+          <p className="text-sm text-blue-300 uppercase tracking-widest font-black mb-3 flex items-center gap-2">
+            <Navigation size={14} /> EM ROTA AGORA — {emRotaList.length}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {emRotaList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-blue-950/30 border border-blue-500/30 rounded-xl p-4 flex flex-col gap-2">
+                className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-5 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-sm" translate="no">{v.cod}</span>
-                  <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded">Em Rota</span>
+                  <span className="font-black text-white text-2xl tracking-wide" translate="no">{v.cod}</span>
+                  <span className="text-sm bg-blue-500/30 text-blue-200 border border-blue-400/50 px-3 py-1 rounded-lg font-bold">Em Rota</span>
                 </div>
-                {v.fleet_veiculos?.placa && <span className="text-xs text-slate-500">{v.fleet_veiculos.placa}</span>}
+                {v.fleet_veiculos?.placa && <span className="text-sm text-slate-300 font-semibold">{v.fleet_veiculos.placa}</span>}
                 {v.lancRota && (
-                  <div className="text-xs text-slate-400 space-y-0.5">
-                    <div>Motorista: <span className="text-slate-200">{v.lancRota.motorista}</span></div>
-                    <div>Saída: <span className="text-slate-200">{fmtHora(v.lancRota.hora_saida)}</span>
-                      {v.lancRota.km_saida && <> · KM: <span className="text-slate-200">{Number(v.lancRota.km_saida).toLocaleString('pt-BR')}</span></>}
+                  <div className="text-sm text-slate-300 space-y-1">
+                    <div className="font-bold text-white text-base">👤 {v.lancRota.motorista}</div>
+                    <div>⏰ Saída: <span className="text-white font-bold">{fmtHora(v.lancRota.hora_saida)}</span>
+                      {v.lancRota.km_saida && <> · KM: <span className="text-white font-bold">{Number(v.lancRota.km_saida).toLocaleString('pt-BR')}</span></>}
                     </div>
                     {v.lancRota.motivo && v.lancRota.motivo !== 'Rota' && (
-                      <div className="text-cyan-400">{v.lancRota.motivo}</div>
+                      <div className="text-cyan-300 font-bold text-base">{v.lancRota.motivo}</div>
                     )}
                   </div>
                 )}
@@ -764,23 +781,23 @@ export default function PainelAnalista() {
       {/* Em Evento */}
       {eventoList.length > 0 && (
         <section>
-          <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
-            <CalendarDays size={11} /> Em Evento — {eventoList.length}
+          <p className="text-sm text-purple-300 uppercase tracking-widest font-black mb-3 flex items-center gap-2">
+            <CalendarDays size={14} /> EM EVENTO — {eventoList.length}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {eventoList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-purple-950/30 border border-purple-500/30 rounded-xl p-4 flex flex-col gap-2">
+                className="bg-purple-950/40 border border-purple-500/40 rounded-xl p-5 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-sm" translate="no">{v.cod}</span>
-                  <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded">🎉 Evento</span>
+                  <span className="font-black text-white text-2xl tracking-wide" translate="no">{v.cod}</span>
+                  <span className="text-sm bg-purple-500/30 text-purple-200 border border-purple-400/50 px-3 py-1 rounded-lg font-bold">🎉 Evento</span>
                 </div>
                 {v.lancHoje?.observacao && (
-                  <span className="text-xs text-purple-300 italic">{v.lancHoje.observacao}</span>
+                  <span className="text-base text-purple-200 font-bold">{v.lancHoje.observacao}</span>
                 )}
-                <div className="text-xs text-slate-400">
-                  Data: <span className="text-slate-200">{fmtData(v.lancHoje?.data)}</span>
-                  {v.lancHoje?.km_saida && <> · KM Saída: <span className="text-slate-200">{Number(v.lancHoje.km_saida).toLocaleString('pt-BR')}</span></>}
+                <div className="text-sm text-slate-300">
+                  Data: <span className="text-white font-bold">{fmtData(v.lancHoje?.data)}</span>
+                  {v.lancHoje?.km_saida && <> · KM: <span className="text-white font-bold">{Number(v.lancHoje.km_saida).toLocaleString('pt-BR')}</span></>}
                 </div>
                 <div className="flex gap-2 mt-1">
                   <button
@@ -798,20 +815,20 @@ export default function PainelAnalista() {
       {/* Registrados hoje (rota normal) */}
       {registradoList.length > 0 && (
         <section>
-          <p className="text-xs text-emerald-500/70 uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
-            <CheckCircle size={11} /> Registrados Hoje — {registradoList.length}
+          <p className="text-sm text-emerald-400 uppercase tracking-widest font-black mb-3 flex items-center gap-2">
+            <CheckCircle size={14} /> REGISTRADOS HOJE — {registradoList.length}
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {registradoList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-slate-900/50 border border-slate-800/60 rounded-lg px-3 py-2.5 flex flex-col gap-1">
-                <span className="font-bold text-slate-300 text-sm leading-none" translate="no">{v.cod}</span>
-                {v.fleet_veiculos?.placa && <span className="text-xs text-slate-600 leading-none">{v.fleet_veiculos.placa}</span>}
-                <span className={`text-xs leading-none ${v.lancHoje?.status === 'aprovado' ? 'text-emerald-500' : v.lancHoje?.status === 'rejeitado' ? 'text-rose-500' : 'text-amber-500'}`}>
+                className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-1.5">
+                <span className="font-black text-white text-xl leading-none" translate="no">{v.cod}</span>
+                {v.fleet_veiculos?.placa && <span className="text-sm text-slate-300 font-semibold leading-none">{v.fleet_veiculos.placa}</span>}
+                <span className={`text-sm font-bold leading-none ${v.lancHoje?.status === 'aprovado' ? 'text-emerald-400' : v.lancHoje?.status === 'rejeitado' ? 'text-rose-400' : 'text-amber-400'}`}>
                   {v.lancHoje?.status === 'aprovado' ? '✅ Aprovado' : v.lancHoje?.status === 'rejeitado' ? '❌ Rejeitado' : '⏳ Pendente'}
                 </span>
                 {v.lancHoje?.total_recorrido && (
-                  <span className="text-xs text-slate-500 leading-none">+{Number(v.lancHoje.total_recorrido).toLocaleString('pt-BR')} km</span>
+                  <span className="text-sm text-slate-300 font-semibold leading-none">+{Number(v.lancHoje.total_recorrido).toLocaleString('pt-BR')} km</span>
                 )}
               </div>
             ))}
@@ -822,16 +839,16 @@ export default function PainelAnalista() {
       {/* Disponíveis */}
       {disponivelList.length > 0 && (
         <section>
-          <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
-            <Truck size={11} /> Disponíveis / Sem Registro — {disponivelList.length}
+          <p className="text-sm text-slate-300 uppercase tracking-widest font-black mb-3 flex items-center gap-2">
+            <Truck size={14} /> DISPONÍVEIS / SEM REGISTRO — {disponivelList.length}
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {disponivelList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-slate-900/40 border border-slate-800/40 rounded-lg px-3 py-2.5 flex flex-col gap-1">
-                <span className="font-bold text-slate-400 text-sm leading-none" translate="no">{v.cod}</span>
-                {v.fleet_veiculos?.placa && <span className="text-xs text-slate-600 leading-none">{v.fleet_veiculos.placa}</span>}
-                <span className="text-xs text-slate-600 leading-none">
+                className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 flex flex-col gap-1.5">
+                <span className="font-black text-white text-xl leading-none" translate="no">{v.cod}</span>
+                {v.fleet_veiculos?.placa && <span className="text-sm text-slate-300 font-semibold leading-none">{v.fleet_veiculos.placa}</span>}
+                <span className="text-sm text-slate-400 font-medium leading-none">
                   {v.fleet_veiculos?.km_atual ? Number(v.fleet_veiculos.km_atual).toLocaleString('pt-BR') + ' km' : 'KM —'}
                 </span>
               </div>
@@ -843,18 +860,18 @@ export default function PainelAnalista() {
       {/* Em Manutenção */}
       {manutencaoList.length > 0 && (
         <section>
-          <p className="text-xs text-orange-500/70 uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5">
-            <Clock size={11} /> Em Manutenção — {manutencaoList.length}
+          <p className="text-sm text-orange-300 uppercase tracking-widest font-black mb-3 flex items-center gap-2">
+            <Clock size={14} /> EM MANUTENÇÃO — {manutencaoList.length}
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {manutencaoList.map(v => (
               <div key={v.veiculo_id}
-                className="bg-orange-950/20 border border-orange-500/20 rounded-lg px-3 py-2.5 flex flex-col gap-1">
-                <span className="font-bold text-orange-300 text-sm leading-none" translate="no">{v.cod}</span>
-                {v.fleet_veiculos?.placa && <span className="text-xs text-slate-500 leading-none">{v.fleet_veiculos.placa}</span>}
-                <span className="text-xs text-orange-400/70 leading-none">{v.fleet_veiculos?.status_operacional}</span>
+                className="bg-orange-950/30 border border-orange-500/30 rounded-xl px-4 py-3 flex flex-col gap-1.5">
+                <span className="font-black text-white text-xl leading-none" translate="no">{v.cod}</span>
+                {v.fleet_veiculos?.placa && <span className="text-sm text-slate-300 font-semibold leading-none">{v.fleet_veiculos.placa}</span>}
+                <span className="text-sm text-orange-300 font-bold leading-none">{v.fleet_veiculos?.status_operacional}</span>
                 {v.fleet_veiculos?.motivo_manutencao && (
-                  <span className="text-xs text-slate-400 leading-none italic">{v.fleet_veiculos.motivo_manutencao}</span>
+                  <span className="text-sm text-white font-bold leading-none">{v.fleet_veiculos.motivo_manutencao}</span>
                 )}
               </div>
             ))}
