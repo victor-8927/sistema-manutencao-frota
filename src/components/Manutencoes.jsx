@@ -320,7 +320,8 @@ export default function Manutencoes() {
 
   function getPeriodoBounds() {
     if (periodoModo === 'mes' && filterAno && filterMes) {
-      return { start: `${filterAno}-${filterMes}-01`, end: `${filterAno}-${filterMes}-31` }
+      const lastDay = new Date(parseInt(filterAno), parseInt(filterMes), 0).getDate()
+      return { start: `${filterAno}-${filterMes.padStart(2,'0')}-01`, end: `${filterAno}-${filterMes.padStart(2,'0')}-${lastDay}` }
     }
     if (periodoModo === 'ano' && filterAno) {
       return { start: `${filterAno}-01-01`, end: `${filterAno}-12-31` }
