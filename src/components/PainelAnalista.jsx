@@ -341,116 +341,149 @@ export default function PainelAnalista() {
 
       {/* Modal Lançar Rota */}
       {modalRota && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Navigation size={16} className="text-blue-400" /> Lançar Rota do Dia
-              </h3>
-              <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
-                className="text-slate-500 hover:text-white text-xl leading-none">×</button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Veículo *</label>
-                <select value={rota.veiculo} onChange={e => setRota(p => ({ ...p, veiculo: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
-                  <option value="">Selecione...</option>
-                  {veiculosDisponiveis.map(v => (
-                    <option key={v.id} value={v.codigo_vda}>{v.codigo_vda} {v.placa ? `· ${v.placa}` : ''}</option>
-                  ))}
-                </select>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[95vh] overflow-y-auto shadow-2xl">
+
+            {/* Header */}
+            <div className="sticky top-0 bg-slate-950 border-b border-slate-800 px-6 pt-6 pb-4 rounded-t-3xl sm:rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-0.5">
+                    {rota.data_saida === hoje ? '⚡ Saída Imediata' : '📋 Planejamento'}
+                  </p>
+                  <h3 className="text-xl font-black text-white">Lançar Rota</h3>
+                </div>
+                <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-lg transition-colors">×</button>
               </div>
-              {/* Motorista */}
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+
+              {/* SEÇÃO 1 — Veículo & Motorista */}
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Motorista *</label>
-                {!cadastrandoMotorista ? (
-                  <div className="flex gap-2">
-                    <select value={rota.motorista} onChange={e => setRota(p => ({ ...p, motorista: e.target.value }))}
-                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
-                      <option value="">Selecione o motorista...</option>
-                      {motoristas.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">🚛 Identificação</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Veículo <span className="text-rose-400">*</span></label>
+                    <select value={rota.veiculo} onChange={e => setRota(p => ({ ...p, veiculo: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors">
+                      <option value="">Selecione o veículo...</option>
+                      {veiculosDisponiveis.map(v => (
+                        <option key={v.id} value={v.codigo_vda}>{v.codigo_vda}{v.placa ? ` · ${v.placa}` : ''}</option>
+                      ))}
                     </select>
-                    <button type="button" onClick={() => setCadastrandoMotorista(true)}
-                      title="Cadastrar novo motorista"
-                      className="px-3 py-2 bg-slate-700 hover:bg-blue-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors">
-                      <Plus size={14} />
-                    </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input type="text" value={novoMotorista} onChange={e => setNovoMotorista(e.target.value)}
-                      placeholder="Nome completo do motorista"
-                      autoFocus
-                      onKeyDown={e => { if (e.key === 'Enter') salvarNovoMotorista(); if (e.key === 'Escape') { setCadastrandoMotorista(false); setNovoMotorista(''); } }}
-                      className="flex-1 bg-slate-800 border border-blue-500 rounded-lg px-3 py-2 text-sm text-white focus:outline-none" />
-                    <button type="button" onClick={salvarNovoMotorista} disabled={salvandoMotorista}
-                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-bold transition-colors">
-                      {salvandoMotorista ? '...' : '✓'}
-                    </button>
-                    <button type="button" onClick={() => { setCadastrandoMotorista(false); setNovoMotorista(''); }}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-sm transition-colors">✕</button>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Motorista <span className="text-rose-400">*</span></label>
+                    {!cadastrandoMotorista ? (
+                      <div className="flex gap-2">
+                        <select value={rota.motorista} onChange={e => setRota(p => ({ ...p, motorista: e.target.value }))}
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors">
+                          <option value="">Selecione o motorista...</option>
+                          {motoristas.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+                        </select>
+                        <button type="button" onClick={() => setCadastrandoMotorista(true)}
+                          title="Cadastrar novo motorista"
+                          className="px-3.5 bg-slate-800 hover:bg-blue-700 border border-slate-700 hover:border-blue-500 text-slate-400 hover:text-white rounded-xl transition-all">
+                          <Plus size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input type="text" value={novoMotorista} onChange={e => setNovoMotorista(e.target.value)}
+                            placeholder="Nome completo do motorista"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') salvarNovoMotorista(); if (e.key === 'Escape') { setCadastrandoMotorista(false); setNovoMotorista(''); } }}
+                            className="flex-1 bg-slate-900 border border-blue-500 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none ring-1 ring-blue-500/30" />
+                          <button type="button" onClick={salvarNovoMotorista} disabled={salvandoMotorista}
+                            className="px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
+                            {salvandoMotorista ? '…' : '✓'}
+                          </button>
+                          <button type="button" onClick={() => { setCadastrandoMotorista(false); setNovoMotorista(''); }}
+                            className="px-3.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl transition-colors">✕</button>
+                        </div>
+                        <p className="text-xs text-blue-400 pl-1">Enter para salvar · Esc para cancelar</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {cadastrandoMotorista && <p className="text-xs text-blue-400 mt-1">Enter para salvar · Esc para cancelar</p>}
-              </div>
-
-              {/* Destino */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Destino / Zona</label>
-                <input type="text" value={rota.destino}
-                  onChange={e => setRota(p => ({ ...p, destino: e.target.value }))}
-                  placeholder="ex: ZONA CENTRO NORTE, ROTA 802"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-              </div>
-
-              {/* Ordem de Carga */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Ordem de Carga</label>
-                <input type="text" value={rota.ordem_carga}
-                  onChange={e => setRota(p => ({ ...p, ordem_carga: e.target.value }))}
-                  placeholder="ex: OC-001, OC-2024-802"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-              </div>
-
-              {/* Data */}
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">📅 Data de Saída</label>
-                <input type="date" value={rota.data_saida}
-                  onChange={e => setRota(p => ({ ...p, data_saida: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-                <p className="text-xs text-slate-500 mt-1">
-                  {rota.data_saida === hoje ? '⚡ Saindo agora — será marcado Em Rota' : '📋 Planejamento — ficará como Pendente até o dia'}
-                </p>
-              </div>
-
-              {/* KM + Observação */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">KM Saída <span className="text-slate-600">(opcional)</span></label>
-                  <input type="number" value={rota.km_saida}
-                    onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
-                    placeholder="ex: 325000"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Observação</label>
-                  <input type="text" value={rota.observacao}
-                    onChange={e => setRota(p => ({ ...p, observacao: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+              </div>
+
+              {/* Divisor */}
+              <div className="border-t border-slate-800" />
+
+              {/* SEÇÃO 2 — Rota */}
+              <div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📍 Rota & Carga</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Destino / Zona</label>
+                    <input type="text" value={rota.destino}
+                      onChange={e => setRota(p => ({ ...p, destino: e.target.value }))}
+                      placeholder="ex: ZONA CENTRO NORTE, ROTA 802"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white placeholder:font-normal focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Ordem de Carga</label>
+                    <input type="text" value={rota.ordem_carga}
+                      onChange={e => setRota(p => ({ ...p, ordem_carga: e.target.value }))}
+                      placeholder="ex: OC-001"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white placeholder:font-normal focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Divisor */}
+              <div className="border-t border-slate-800" />
+
+              {/* SEÇÃO 3 — Programação */}
+              <div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📅 Programação</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Data de Saída</label>
+                    <input type="date" value={rota.data_saida}
+                      onChange={e => setRota(p => ({ ...p, data_saida: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors" />
+                    <div className={`mt-2 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${rota.data_saida === hoje ? 'bg-emerald-950/60 border border-emerald-500/30 text-emerald-400' : 'bg-amber-950/60 border border-amber-500/30 text-amber-400'}`}>
+                      {rota.data_saida === hoje ? '⚡ Saindo agora — veículo ficará Em Rota imediatamente' : '📋 Planejamento — ficará como Pendente até o dia da saída'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">KM Saída <span className="text-slate-600 font-normal">(opcional)</span></label>
+                      <input type="number" value={rota.km_saida}
+                        onChange={e => setRota(p => ({ ...p, km_saida: e.target.value }))}
+                        placeholder="325000"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white placeholder:font-normal focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Observação</label>
+                      <input type="text" value={rota.observacao}
+                        onChange={e => setRota(p => ({ ...p, observacao: e.target.value }))}
+                        placeholder="Notas..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white placeholder:font-normal focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 pt-1">
-              <button onClick={salvarRota} disabled={salvando}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors">
-                {salvando ? 'Salvando...' : rota.data_saida === hoje ? '🚛 Lançar Saída → Em Rota' : '📋 Planejar Rota → Pendente'}
+
+            {/* Footer CTA */}
+            <div className="sticky bottom-0 bg-slate-950 border-t border-slate-800 px-6 py-4 flex gap-3">
+              <button onClick={salvarRota} disabled={salvando || !rota.veiculo || !rota.motorista}
+                className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${rota.data_saida === hoje ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-500/20'}`}>
+                {salvando ? 'Salvando…' : rota.data_saida === hoje ? '🚛 Lançar → Em Rota agora' : '📋 Planejar → Pendente'}
               </button>
               <button onClick={() => { setModalRota(false); setRota(MODAL_ROTA_VAZIO); }}
-                className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-colors">
+                className="px-5 py-3.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700 transition-all">
                 Cancelar
               </button>
             </div>
+
           </div>
         </div>
       )}
