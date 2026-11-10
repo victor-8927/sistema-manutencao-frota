@@ -23,24 +23,41 @@ export default function StatusDiarioFlyer() {
 
   async function load() {
     setLoading(true)
-    const { data: vList } = await supabase
-      .from('fleet_veiculos')
-      .select('id,codigo_vda,placa,descricao,tipo_veiculo,status_operacional,observacao_manutencao,categoria')
-      .in('status_operacional', ['Ativo', 'Manutenção'])
-      .neq('categoria', 'Gerência')
-      .order('codigo_vda')
-
-    const { data: sdList } = await supabase
-      .from('fleet_status_diario')
-      .select('*')
-      .eq('data_status', dateKey)
+    const [{ data: vList }, { data: sdList }] = await Promise.all([
+      supabase
+        .from('fleet_veiculos')
+        .select('id,codigo_vda,placa,descricao,tipo_veiculo,status_operacional,observacao_manutencao,categoria')
+        .in('status_operacional', ['Ativo', 'Manutenção'])
+        .neq('categoria', 'Gerência')
+        .order('codigo_vda'),
+      supabase
+        .from('fleet_status_diario')
+        .select('*')
+        .eq('data_status', dateKey),
+    ])
 
     const map = {}
     if (sdList) sdList.forEach(s => { map[s.veiculo_id] = s })
 
-    setVeiculos(vList || [])
+    const lista = vList || []
+    setVeiculos(lista)
     setStatusMap(map)
     setLoading(false)
+
+    // Snapshot diário: salva estado da frota no histórico (upsert → 1 registro por veículo/dia)
+    if (lista.length > 0) {
+      const rows = lista.map(v => ({
+        data: dateKey,
+        veiculo_id: v.id,
+        codigo_vda: v.codigo_vda,
+        categoria: v.categoria,
+        status_operacional: v.status_operacional,
+        status_dia: map[v.id]?.status_dia || (v.status_operacional === 'Manutenção' ? 'Inapto' : 'Sem Status'),
+      }))
+      await supabase
+        .from('fleet_historico_status')
+        .upsert(rows, { onConflict: 'data,veiculo_id', ignoreDuplicates: false })
+    }
   }
 
   useEffect(() => {
@@ -106,8 +123,6 @@ export default function StatusDiarioFlyer() {
         borderRadius: '16px',
         padding: '32px',
         fontFamily: 'Arial, sans-serif',
-        maxWidth: '800px',
-        margin: '0 auto',
         border: '2px solid #334155',
       }}>
         {/* Header */}

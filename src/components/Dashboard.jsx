@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Truck, Wrench, Droplets, Gauge, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Truck, Wrench, Droplets, Gauge, AlertTriangle, RefreshCw, Activity } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -35,11 +35,13 @@ export default function Dashboard() {
       { data: oleo },
       { data: taco },
       { data: man },
+      { data: hist },
     ] = await Promise.all([
       supabase.from('fleet_veiculos').select('*'),
       supabase.from('fleet_controle_oleo').select('*, fleet_veiculos(codigo_vda, placa)'),
       supabase.from('fleet_controle_tacografo').select('*, fleet_veiculos(codigo_vda, placa)'),
       supabase.from('fleet_manutencoes').select('*, fleet_veiculos(codigo_vda, placa)').order('data_os', { ascending: false }),
+      supabase.from('fleet_historico_status').select('data,veiculo_id,codigo_vda,categoria,status_operacional,status_dia').order('data', { ascending: false }).limit(3000),
     ])
 
     // --- Óleo (fleet_controle_oleo usa km_atual e km_ultima_troca) ---
@@ -115,6 +117,59 @@ export default function Dashboard() {
     const manAbertas   = (man || []).filter(r => r.status_realizacao === STATUS_PENDENTE || r.status_realizacao === STATUS_PRIORIDADE).length
     const manAndamento = (man || []).filter(r => r.status_realizacao === STATUS_PRIORIDADE).length
 
+    // --- Histórico da Frota ---
+    const histRows = hist || []
+
+    // Últimos 30 dias por semana (agrupado por semana ISO)
+    const semanaMap = {}
+    for (const r of histRows) {
+      const d = new Date(r.data + 'T00:00:00')
+      // semana ISO: segunda-feira da semana
+      const dow = d.getDay() === 0 ? 6 : d.getDay() - 1
+      const seg = new Date(d); seg.setDate(d.getDate() - dow)
+      const wk = seg.toISOString().slice(0, 10)
+      if (!semanaMap[wk]) semanaMap[wk] = { ativo: 0, manutencao: 0, inapto: 0, semStatus: 0 }
+      const s = r.status_dia || (r.status_operacional === 'Manutenção' ? 'Inapto' : 'Sem Status')
+      if (r.status_operacional === 'Ativo' && (s === 'Apto para a Rota' || s === 'Apto para Serviço' || s === 'Apto com Observação')) semanaMap[wk].ativo++
+      else if (r.status_operacional === 'Manutenção' || s === 'Inapto') semanaMap[wk].manutencao++
+      else semanaMap[wk].semStatus++
+    }
+    const histPorSemana = Object.entries(semanaMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8)
+      .map(([wk, v]) => ({
+        semana: new Date(wk + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+        Ativo: v.ativo, Manutenção: v.manutencao, 'Sem Status': v.semStatus,
+      }))
+
+    // Ranking de disponibilidade por veículo
+    const veicMap = {}
+    for (const r of histRows) {
+      if (!veicMap[r.codigo_vda]) veicMap[r.codigo_vda] = { total: 0, apto: 0, manut: 0 }
+      veicMap[r.codigo_vda].total++
+      const s = r.status_dia || (r.status_operacional === 'Manutenção' ? 'Inapto' : 'Sem Status')
+      if (r.status_operacional === 'Ativo' && (s === 'Apto para a Rota' || s === 'Apto para Serviço' || s === 'Apto com Observação')) veicMap[r.codigo_vda].apto++
+      else if (r.status_operacional === 'Manutenção' || s === 'Inapto') veicMap[r.codigo_vda].manut++
+    }
+    const rankingDisp = Object.entries(veicMap)
+      .map(([vda, v]) => ({
+        vda,
+        total: v.total,
+        apto: v.apto,
+        manut: v.manut,
+        pct: v.total > 0 ? Math.round((v.apto / v.total) * 100) : null,
+      }))
+      .filter(v => v.total >= 3)
+      .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+
+    // KPI: disponibilidade geral (% dias apto / total registros)
+    const totalReg = histRows.length
+    const totalApto = histRows.filter(r => {
+      const s = r.status_dia || (r.status_operacional === 'Manutenção' ? 'Inapto' : 'Sem Status')
+      return r.status_operacional === 'Ativo' && (s === 'Apto para a Rota' || s === 'Apto para Serviço' || s === 'Apto com Observação')
+    }).length
+    const dispGeral = totalReg > 0 ? Math.round((totalApto / totalReg) * 100) : null
+
     setData({
       totalVeiculos: (veiculos || []).length,
       veiculosAtivos: (veiculos || []).filter(v => v.status_operacional === 'Ativo').length,
@@ -125,6 +180,7 @@ export default function Dashboard() {
       oleoVencido, oleoProximo, tacoVencido, tacoProximo,
       manPorStatus, manPorMes, manCustoTipo,
       recentesMantencoes: (man || []).slice(0, 5),
+      histPorSemana, rankingDisp, dispGeral, totalHistDias: new Set(histRows.map(r => r.data)).size,
     })
     setLoading(false)
   }, [])
@@ -267,6 +323,105 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Histórico da Frota */}
+      {data.totalHistDias > 0 && (
+        <div className="space-y-4">
+          <SectionTitle>Histórico da Frota</SectionTitle>
+
+          {/* KPI disponibilidade */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3">
+              <Activity size={20} className="text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-emerald-400">
+                  {data.dispGeral !== null ? `${data.dispGeral}%` : '—'}
+                </p>
+                <p className="text-xs text-gray-400">Disponibilidade Geral</p>
+              </div>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3">
+              <Truck size={20} className="text-blue-400 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-blue-400">{data.totalHistDias}</p>
+                <p className="text-xs text-gray-400">Dias com Registro</p>
+              </div>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3 sm:col-span-1 col-span-2">
+              <Wrench size={20} className="text-yellow-400 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-yellow-400">
+                  {data.dispGeral !== null ? `${100 - data.dispGeral}%` : '—'}
+                </p>
+                <p className="text-xs text-gray-400">Em Manutenção / Inapto</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico por semana */}
+          {data.histPorSemana.length > 0 && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <SectionTitle>Ativo vs Manutenção — Por Semana</SectionTitle>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data.histPorSemana} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="semana" tick={{ fill: '#6b7280', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6', fontSize: 12 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#9ca3af' }} />
+                  <Bar dataKey="Ativo" stackId="a" fill="#10b981" radius={[0,0,0,0]} />
+                  <Bar dataKey="Manutenção" stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
+                  <Bar dataKey="Sem Status" stackId="a" fill="#4b5563" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Ranking por veículo */}
+          {data.rankingDisp.length > 0 && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-800">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Disponibilidade por Veículo</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    {['Veículo', 'Dias Apto', 'Dias Manut.', 'Total Dias', '% Disponível'].map(h => (
+                      <th key={h} className="text-left text-xs text-gray-500 font-medium px-4 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rankingDisp.map(r => (
+                    <tr key={r.vda} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                      <td className="px-4 py-3 font-semibold text-white">{r.vda}</td>
+                      <td className="px-4 py-3 text-emerald-400">{r.apto}</td>
+                      <td className="px-4 py-3 text-yellow-400">{r.manut}</td>
+                      <td className="px-4 py-3 text-gray-400">{r.total}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-800 rounded-full h-1.5 min-w-[60px]">
+                            <div
+                              className="h-1.5 rounded-full"
+                              style={{
+                                width: `${r.pct ?? 0}%`,
+                                background: r.pct >= 80 ? '#10b981' : r.pct >= 60 ? '#f59e0b' : '#ef4444',
+                              }}
+                            />
+                          </div>
+                          <span className={`text-xs font-bold w-9 text-right ${r.pct >= 80 ? 'text-emerald-400' : r.pct >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {r.pct !== null ? `${r.pct}%` : '—'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
