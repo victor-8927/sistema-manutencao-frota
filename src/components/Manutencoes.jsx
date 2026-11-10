@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Wrench, Plus, RefreshCw, Edit2, Trash2, Save, ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react'
+import { Wrench, Plus, RefreshCw, Edit2, Trash2, Save, ChevronLeft, ChevronRight, Calendar, X, CheckCircle2, AlertTriangle, DollarSign, ClipboardList, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import Modal from './Modal'
 import ConfirmDialog from './ConfirmDialog'
 import StatusBadge from './StatusBadge'
@@ -306,9 +306,11 @@ export default function Manutencoes() {
   const [modalRow, setModalRow]       = useState(null)
   const [deleteRow, setDeleteRow]     = useState(null)
   const [search, setSearch]           = useState('')
-  const [filterTipo, setFilterTipo]   = useState('')
+  const [filterTipo, setFilterTipo]     = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [page, setPage]               = useState(0)
+  const [filterVeiculo, setFilterVeiculo] = useState('')
+  const [expandedRow, setExpandedRow]   = useState(null)
+  const [page, setPage]                 = useState(0)
 
   // Filtros de período (server-side)
   const [periodoModo, setPeriodoModo] = useState('mes')
@@ -364,7 +366,7 @@ export default function Manutencoes() {
     return () => supabase.removeChannel(ch)
   }, [load])
 
-  useEffect(() => { setPage(0) }, [search, filterTipo, filterStatus, periodoModo, filterAno, filterMes, filterDia, rangeStart, rangeEnd])
+  useEffect(() => { setPage(0) }, [search, filterTipo, filterStatus, filterVeiculo, periodoModo, filterAno, filterMes, filterDia, rangeStart, rangeEnd])
 
   async function handleDelete() {
     await supabase.from(TABLE).delete().eq('id', deleteRow.id)
@@ -382,9 +384,10 @@ export default function Manutencoes() {
       || r.fornecedor?.toLowerCase().includes(q)
       || r.solicitante_os?.toLowerCase().includes(q)
       || r.ordem_compra?.toLowerCase().includes(q)
-    const matchT = !filterTipo   || r.tipo_manutencao  === filterTipo
-    const matchS = !filterStatus || r.status_realizacao === filterStatus
-    return matchQ && matchT && matchS
+    const matchT = !filterTipo    || r.tipo_manutencao  === filterTipo
+    const matchS = !filterStatus  || r.status_realizacao === filterStatus
+    const matchV = !filterVeiculo || r.veiculo_id === filterVeiculo
+    return matchQ && matchT && matchS && matchV
   })
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -407,6 +410,37 @@ export default function Manutencoes() {
     return 'Todos os períodos'
   }
   const periodoLabel = getPeriodoLabel()
+  // Custo por veículo
+  const costByVeiculo = Object.values(
+    rows.reduce((acc, r) => {
+      const key   = r.veiculo_id
+      const label = r.fleet_veiculos?.codigo_vda ?? r.codigo_vda ?? key
+      if (!acc[key]) acc[key] = { label, total: 0 }
+      acc[key].total += Number(r.valor) || 0
+      return acc
+    }, {})
+  ).sort((a, b) => b.total - a.total)
+
+  // Export CSV
+  function exportCSV() {
+    const cols = ['numero_os','codigo_vda','data_os','tipo_manutencao','tipo_despesa','descricao_servico',
+                  'solicitante_os','ordem_compra','nota_fiscal','fornecedor','valor',
+                  'status_veiculo','status_realizacao','data_encerramento_os','observacoes']
+    const header = cols.join(';')
+    const body = filtered.map(r => cols.map(c => {
+      if (c === 'codigo_vda') return r.fleet_veiculos?.codigo_vda ?? r.codigo_vda ?? ''
+      const v = r[c] ?? ''
+      return `"${String(v).replace(/"/g,'""')}"`
+    }).join(';')).join('\n')
+    const blob = new Blob(['﻿' + header + '\n' + body], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `manutencoes_${periodoLabel.replace(/[^a-zA-Z0-9]/g,'_')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const sel = 'bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white'
   const inp = 'bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white'
 
@@ -416,11 +450,34 @@ export default function Manutencoes() {
     <div className="space-y-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KPICard title="Total OS"      value={rows.length}             icon={Wrench} color="blue"   subtitle={periodoLabel} />
-        <KPICard title="Realizados"    value={realizados}              icon={Wrench} color="green"  subtitle={`${pendentes} pendentes`} />
-        <KPICard title="Veíc. Parados" value={parados}                icon={Wrench} color="yellow" subtitle="status parado" />
-        <KPICard title="Custo Total"   value={fmtCurrency(totalValor)} icon={Wrench} color="blue"   subtitle={periodoLabel} />
+        <KPICard title="Total OS"      value={rows.length}             icon={ClipboardList} color="blue"   subtitle={periodoLabel} />
+        <KPICard title="Realizados"    value={realizados}              icon={CheckCircle2} color="green"  subtitle={`${pendentes} pendentes`} />
+        <KPICard title="Veíc. Parados" value={parados}                icon={AlertTriangle} color="yellow" subtitle="status parado" />
+        <KPICard title="Custo Total"   value={fmtCurrency(totalValor)} icon={DollarSign}   color="blue"   subtitle={periodoLabel} />
       </div>
+
+      {/* Custo por veículo */}
+      {costByVeiculo.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-widest mb-2">Custo por Veículo — {periodoLabel}</p>
+          <div className="flex flex-wrap gap-2">
+            {costByVeiculo.map(({ label, total }) => (
+              <div key={label}
+                onClick={() => setFilterVeiculo(v => {
+                  const id = rows.find(r => (r.fleet_veiculos?.codigo_vda ?? r.codigo_vda) === label)?.veiculo_id
+                  return v === id ? '' : (id ?? '')
+                })}
+                className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors
+                  ${filterVeiculo && rows.find(r => r.veiculo_id === filterVeiculo && (r.fleet_veiculos?.codigo_vda ?? r.codigo_vda) === label)
+                    ? 'bg-blue-600/20 border-blue-500 text-blue-300'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                <span className="font-bold">{label}</span>
+                <span className="text-gray-400">{fmtCurrency(total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Filtros ──────────────────────────────────────────────── */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 space-y-3">
@@ -484,7 +541,7 @@ export default function Manutencoes() {
           </span>
         </div>
 
-        {/* Linha 2 — Tipo, Status, Busca, Ações */}
+        {/* Linha 2 — Tipo, Status, Veículo, Busca, Ações */}
         <div className="flex flex-wrap items-center gap-2">
           <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} className={sel}>
             <option value="">Todos os tipos</option>
@@ -494,6 +551,11 @@ export default function Manutencoes() {
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={sel}>
             <option value="">Todos os status</option>
             {STATUS_REAL_OPTS.map(s => <option key={s}>{s}</option>)}
+          </select>
+
+          <select value={filterVeiculo} onChange={e => setFilterVeiculo(e.target.value)} className={sel}>
+            <option value="">Todos os veículos</option>
+            {veiculos.map(v => <option key={v.id} value={v.id}>{v.codigo_vda} — {v.placa}</option>)}
           </select>
 
           <div className="flex items-center gap-2 flex-1 min-w-48 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
@@ -507,6 +569,10 @@ export default function Manutencoes() {
             )}
           </div>
 
+          <button onClick={exportCSV} title="Exportar CSV"
+            className="flex items-center gap-1.5 p-2 text-gray-400 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors">
+            <Download size={16} />
+          </button>
           <button onClick={load} title="Recarregar"
             className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
             <RefreshCw size={16} />
@@ -524,41 +590,81 @@ export default function Manutencoes() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {['OS','Veículo','Data OS','Tipo','Tipo Despesa','Descrição','Fornecedor','Valor','St. Veíc.','Realização','Ações'].map(h => (
+                <th className="w-6 px-2 py-3"></th>
+                {['OS','Veículo','Data OS','Tipo','Tipo Despesa','Descrição','Solicitante','NF','OC','Fornecedor','Valor','Encerramento','St. Veíc.','Realização','Ações'].map(h => (
                   <th key={h} className="text-left text-xs text-gray-500 font-medium px-4 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {paged.length === 0 && (
-                <tr><td colSpan={11} className="text-center text-gray-500 py-10">Nenhuma manutenção encontrada</td></tr>
+                <tr><td colSpan={16} className="text-center text-gray-500 py-10">Nenhuma manutenção encontrada</td></tr>
               )}
-              {paged.map(r => (
-                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.numero_os || '—'}</td>
-                  <td className="px-4 py-3 font-medium text-white whitespace-nowrap">{r.fleet_veiculos?.codigo_vda ?? r.codigo_vda ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{fmtDate(r.data_os)}</td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.tipo_manutencao || '—'}</td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.tipo_despesa || '—'}</td>
-                  <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{r.descricao_servico}</td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.fornecedor || '—'}</td>
-                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{fmtCurrency(r.valor)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.status_veiculo === 'PARADO' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                      {r.status_veiculo || '—'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3"><StatusBadge status={r.status_realizacao} /></td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      <button onClick={() => setModalRow(r)}
-                        className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Edit2 size={14} /></button>
-                      <button onClick={() => setDeleteRow(r)}
-                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {paged.map(r => {
+                const isExpanded = expandedRow === r.id
+                return (
+                  <React.Fragment key={r.id}>
+                    <tr className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                        onClick={() => setExpandedRow(v => v === r.id ? null : r.id)}>
+                      <td className="px-2 py-3 text-gray-500">
+                        {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.numero_os || '—'}</td>
+                      <td className="px-4 py-3 font-medium text-white whitespace-nowrap">{r.fleet_veiculos?.codigo_vda ?? r.codigo_vda ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{fmtDate(r.data_os)}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.tipo_manutencao || '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.tipo_despesa || '—'}</td>
+                      <td className="px-4 py-3 text-gray-300 max-w-[200px] truncate" title={r.descricao_servico}>{r.descricao_servico}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.solicitante_os || '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.nota_fiscal || '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.ordem_compra || '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{r.fornecedor || '—'}</td>
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap font-medium">{fmtCurrency(r.valor)}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{fmtDate(r.data_encerramento_os)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.status_veiculo === 'PARADO' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                          {r.status_veiculo || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={r.status_realizacao} /></td>
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <div className="flex gap-1">
+                          <button onClick={() => setModalRow(r)}
+                            className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"><Edit2 size={14} /></button>
+                          <button onClick={() => setDeleteRow(r)}
+                            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-gray-800/40 border-b border-gray-700">
+                        <td colSpan={16} className="px-6 py-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <p className="text-gray-500 mb-0.5">Descrição Completa</p>
+                              <p className="text-gray-200 whitespace-pre-wrap">{r.descricao_servico || '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 mb-0.5">Observações</p>
+                              <p className="text-gray-200 whitespace-pre-wrap">{r.observacoes || '—'}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p><span className="text-gray-500">Prioridade:</span> <span className="text-gray-300">{r.classificacao_prioridade || '—'}</span></p>
+                              <p><span className="text-gray-500">Local:</span> <span className="text-gray-300">{r.local_servico || '—'}</span></p>
+                              <p><span className="text-gray-500">Quilometragem:</span> <span className="text-gray-300">{r.quilometragem ?? '—'}</span></p>
+                            </div>
+                            <div className="space-y-1">
+                              <p><span className="text-gray-500">Tempo (h):</span> <span className="text-gray-300">{r.tempo_hora_servico ?? '—'}</span></p>
+                              <p><span className="text-gray-500">Quantidade:</span> <span className="text-gray-300">{r.quantidade ?? '—'}</span></p>
+                              <p><span className="text-gray-500">PG Cleber:</span> <span className="text-gray-300">{r.pg_cleber || '—'}</span></p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -566,7 +672,7 @@ export default function Manutencoes() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
             <span className="text-xs text-gray-500">
-              {filtered.length} de {rows.length} registros ({periodoLabel}) · página {page + 1} de {totalPages}
+              {filtered.length} de {rows.length} registros ({periodoLabel}) · página {page + 1}/{totalPages}
             </span>
             <div className="flex gap-1">
               <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
