@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, Truck, Navigation, CalendarDays, CheckCircle, XCircle, Plus, Clock } from 'lucide-react';
+import { RefreshCw, Truck, Navigation, CalendarDays, CheckCircle, XCircle, Plus, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 function fmtHora(ts) {
   if (!ts) return '—';
@@ -47,10 +47,18 @@ export default function PainelAnalista() {
   const [classificar, setClassificar] = useState(MODAL_CLASSIFICAR_VAZIO);
 
   const [salvando, setSalvando] = useState(false);
+  const [dataSelecionada, setDataSelecionada] = useState(new Date().toISOString().slice(0, 10));
 
   const hoje = new Date().toISOString().slice(0, 10);
+  const isHoje = dataSelecionada === hoje;
 
-  const buscar = async () => {
+  const mudarDia = (delta) => {
+    const d = new Date(dataSelecionada + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    setDataSelecionada(d.toISOString().slice(0, 10));
+  };
+
+  const buscar = useCallback(async () => {
     setLoading(true);
 
     // Frota operacional com dados do veículo
@@ -59,27 +67,38 @@ export default function PainelAnalista() {
       .select('veiculo_id, fleet_veiculos(id, codigo_vda, placa, km_atual, status_operacional, motivo_manutencao)');
     setFrota(frotaData || []);
 
-    // Em rota agora (todos os dias)
-    const { data: rotaData } = await supabase
+    // Em rota agora (apenas se visualizando hoje; para dias passados mostra como registrado)
+    const rotaQuery = supabase
       .from('lancamentos_diarios')
       .select('*')
       .eq('status', 'em_rota')
       .order('hora_saida', { ascending: false });
+    const { data: rotaData } = isHoje
+      ? await rotaQuery
+      : await supabase.from('lancamentos_diarios').select('*').eq('data', dataSelecionada).eq('status', 'em_rota');
     setEmRota(rotaData || []);
 
-    // Lançamentos de hoje (pendente/aprovado/rejeitado)
+    // Lançamentos do dia selecionado (pendente/aprovado/rejeitado/ajustado)
     const { data: hojeLanc } = await supabase
       .from('lancamentos_diarios')
       .select('*')
-      .eq('data', hoje)
+      .eq('data', dataSelecionada)
       .neq('status', 'em_rota')
       .order('hora_saida', { ascending: false });
     setLancamentosHoje(hojeLanc || []);
 
     setLoading(false);
-  };
+  }, [dataSelecionada, isHoje]);
 
-  useEffect(() => { buscar(); }, []);
+  useEffect(() => {
+    buscar();
+    const ch = supabase.channel('painel-analista-ch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_veiculos' }, buscar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_controle_oleo' }, buscar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos_diarios' }, buscar)
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [buscar]);
 
   // Classificação dos veículos
   const emRotaSet = new Set(emRota.map(r => r.veiculo));
@@ -498,20 +517,53 @@ export default function PainelAnalista() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setModalEvento(true)}
-            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-            <CalendarDays size={13} /> Lançar Evento
-          </button>
-          <button onClick={() => setModalSemMov(true)}
-            className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-            <XCircle size={13} /> Sem Movimento
-          </button>
+          {/* Navegação por dia */}
+          <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg px-1 py-1">
+            <button onClick={() => mudarDia(-1)}
+              className="p-1 text-slate-400 hover:text-white rounded transition-colors">
+              <ChevronLeft size={15} />
+            </button>
+            <span className={`text-xs font-medium px-2 min-w-[88px] text-center ${isHoje ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {isHoje ? 'Hoje' : fmtData(dataSelecionada)}
+            </span>
+            <button onClick={() => mudarDia(1)} disabled={isHoje}
+              className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-default rounded transition-colors">
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          {!isHoje && (
+            <button onClick={() => setDataSelecionada(hoje)}
+              className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/50 px-2 py-1.5 rounded-lg transition-colors">
+              Ir para Hoje
+            </button>
+          )}
+          {isHoje && (
+            <>
+              <button onClick={() => setModalEvento(true)}
+                className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+                <CalendarDays size={13} /> Lançar Evento
+              </button>
+              <button onClick={() => setModalSemMov(true)}
+                className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+                <XCircle size={13} /> Sem Movimento
+              </button>
+            </>
+          )}
           <button onClick={buscar}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
+      {/* Banner dia histórico */}
+      {!isHoje && (
+        <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-2.5 flex items-center gap-2">
+          <CalendarDays size={14} className="text-amber-400 shrink-0" />
+          <span className="text-xs text-amber-300">
+            Visualizando histórico de <strong>{fmtData(dataSelecionada)}</strong> — somente leitura.
+          </span>
+        </div>
+      )}
 
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

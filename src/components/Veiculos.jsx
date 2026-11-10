@@ -291,6 +291,7 @@ export default function Veiculos() {
     const ch = supabase.channel('vei-ch')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_veiculos' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fleet_status_diario' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lancamentos_diarios' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
