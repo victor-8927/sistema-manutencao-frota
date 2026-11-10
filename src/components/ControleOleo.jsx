@@ -6,7 +6,18 @@ import ConfirmDialog from './ConfirmDialog'
 import StatusBadge from './StatusBadge'
 
 function calcStatus(r) {
-  // km_atual vem de fleet_veiculos (via PWA) ou fallback do próprio registro
+  if (r.usa_horimetro) {
+    // VDA 94 e similares: status baseado em horas de motor
+    const hAtual  = r.horimetro_atual          ?? 0
+    const hUltima = r.horimetro_ultima_troca   ?? 0
+    const hLim    = r.horimetro_limite         || 600
+    const hRod    = hAtual - hUltima
+    const pct     = Math.round((hRod / hLim) * 100)
+    if (hRod >= hLim)        return { label: 'Ultrapassou Limite', color: 'red',    pct: 100 }
+    if (hRod >= hLim * 0.9)  return { label: 'Pronto p/ Troca',   color: 'yellow', pct }
+    return                          { label: 'Normal',             color: 'green',  pct }
+  }
+  // demais veículos: status baseado em KM
   const kmAtual = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
   const rod = kmAtual - (r.km_ultima_troca || 0)
   const lim = r.km_oleo_limite || 10000
@@ -37,8 +48,10 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
     km_ultima_troca:   row?.km_ultima_troca   ?? 0,
     km_oleo_limite:    row?.km_oleo_limite    ?? 10000,
     observacao:        row?.observacao        ?? '',
-    usa_horimetro:     row?.usa_horimetro     ?? false,
-    horimetro_limite:  row?.horimetro_limite  ?? 600,
+    usa_horimetro:          row?.usa_horimetro          ?? false,
+    horimetro_limite:       row?.horimetro_limite       ?? 600,
+    horimetro_ultima_troca: row?.horimetro_ultima_troca ?? 0,
+    horimetro_atual:        row?.horimetro_atual        ?? 0,
   })
   const kmProximaTroca = Number(form.km_ultima_troca) + Number(form.km_oleo_limite)
   const [saving, setSaving] = useState(false)
@@ -55,9 +68,11 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
       km_proxima_troca:  kmProximaTroca,
       km_oleo_limite:    Number(form.km_oleo_limite),
       observacao:        form.observacao || null,
-      usa_horimetro:     form.usa_horimetro,
-      horimetro_limite:  form.usa_horimetro ? Number(form.horimetro_limite) : null,
-      data_atualizacao:  new Date().toISOString().split('T')[0],
+      usa_horimetro:          form.usa_horimetro,
+      horimetro_limite:       form.usa_horimetro ? Number(form.horimetro_limite)       : null,
+      horimetro_ultima_troca: form.usa_horimetro ? Number(form.horimetro_ultima_troca) : null,
+      horimetro_atual:        form.usa_horimetro ? Number(form.horimetro_atual)        : null,
+      data_atualizacao:       new Date().toISOString().split('T')[0],
       // km_atual NÃO é enviado — vem de fleet_veiculos via PWA/lançamento aprovado
     }
     const { error } = await (isNew
@@ -115,15 +130,35 @@ function OleoModal({ row, veiculos, onClose, onSaved }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
-          <input type="checkbox" id="usa_hor" checked={form.usa_horimetro} onChange={e => set('usa_horimetro', e.target.checked)}
-            className="w-4 h-4 accent-blue-500" />
-          <label htmlFor="usa_hor" className="text-sm text-gray-300 flex items-center gap-1.5">
-            <Timer size={14} className="text-blue-400" /> Controle por Horímetro
-          </label>
+        <div className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg space-y-3">
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="usa_hor" checked={form.usa_horimetro} onChange={e => set('usa_horimetro', e.target.checked)}
+              className="w-4 h-4 accent-blue-500" />
+            <label htmlFor="usa_hor" className="text-sm text-gray-300 flex items-center gap-1.5">
+              <Timer size={14} className="text-blue-400" /> Controle por Horímetro
+            </label>
+            {form.usa_horimetro && (
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="text-xs text-gray-400">Intervalo:</span>
+                <input type="number" value={form.horimetro_limite} onChange={e => set('horimetro_limite', e.target.value)}
+                  placeholder="600" className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white" />
+                <span className="text-xs text-gray-400">h</span>
+              </div>
+            )}
+          </div>
           {form.usa_horimetro && (
-            <input type="number" value={form.horimetro_limite} onChange={e => set('horimetro_limite', e.target.value)}
-              placeholder="Horas" className="ml-auto w-24 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white" />
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-700">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Hora Última Troca (h)</label>
+                <input type="number" value={form.horimetro_ultima_troca} onChange={e => set('horimetro_ultima_troca', e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Horímetro Atual (h) <span className="text-blue-400">— painel</span></label>
+                <input type="number" value={form.horimetro_atual} onChange={e => set('horimetro_atual', e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+              </div>
+            </div>
           )}
         </div>
         <div>
@@ -239,13 +274,20 @@ export default function ControleOleo() {
                 <tr><td colSpan={12} className="text-center text-gray-500 py-10">Nenhum registro encontrado</td></tr>
               )}
               {filtered.map(r => {
-                const kmAtual  = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
-                const kmViaPwa = r.fleet_veiculos?.km_atual != null
-                const st       = calcStatus(r)
-                const rod      = kmAtual - (r.km_ultima_troca || 0)
-                const lim      = r.km_oleo_limite || 10000
-                const saldo    = lim - rod
+                const kmAtual   = r.fleet_veiculos?.km_atual ?? r.km_atual ?? 0
+                const kmViaPwa  = r.fleet_veiculos?.km_atual != null
+                const st        = calcStatus(r)
+                // KM — sempre calculado (exibido mesmo em veículos por horímetro, para medir km/h)
+                const rod       = kmAtual - (r.km_ultima_troca || 0)
+                const lim       = r.km_oleo_limite || 10000
+                const saldo     = lim - rod
                 const proxTroca = (r.km_ultima_troca || 0) + lim
+                // Horímetro — apenas para veículos com usa_horimetro=true
+                const hAtual    = r.horimetro_atual          ?? 0
+                const hUltima   = r.horimetro_ultima_troca   ?? 0
+                const hLim      = r.horimetro_limite         || 600
+                const hRod      = hAtual - hUltima
+                const hSaldo    = hLim - hRod
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
                     {/* Veículo */}
@@ -277,14 +319,35 @@ export default function ControleOleo() {
                     {/* Intervalo */}
                     <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{lim.toLocaleString('pt-BR')} km</td>
                     {/* Rodado */}
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{fmtKm(rod)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <div className="text-gray-300">{fmtKm(rod)}</div>
+                        {r.usa_horimetro && (
+                          <div className="flex items-center gap-1 text-xs text-purple-300">
+                            <Timer size={10} />{hRod}h rodadas
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     {/* Saldo */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="space-y-1 min-w-[90px]">
-                        <span className={`text-xs font-medium ${saldo < 0 ? 'text-red-400' : 'text-gray-300'}`}>
-                          {saldo < 0 ? `+${fmtKm(Math.abs(saldo))}` : fmtKm(saldo)}
-                        </span>
-                        <ProgressBar pct={st.pct} color={st.color} />
+                        {r.usa_horimetro ? (
+                          <>
+                            <span className={`text-xs font-medium ${hSaldo < 0 ? 'text-red-400' : 'text-purple-300'}`}>
+                              {hSaldo < 0 ? `+${Math.abs(hSaldo)}h` : `${hSaldo}h`}
+                            </span>
+                            <ProgressBar pct={st.pct} color={st.color} />
+                            <div className="text-xs text-gray-500">{hAtual}h / {hLim}h</div>
+                          </>
+                        ) : (
+                          <>
+                            <span className={`text-xs font-medium ${saldo < 0 ? 'text-red-400' : 'text-gray-300'}`}>
+                              {saldo < 0 ? `+${fmtKm(Math.abs(saldo))}` : fmtKm(saldo)}
+                            </span>
+                            <ProgressBar pct={st.pct} color={st.color} />
+                          </>
+                        )}
                       </div>
                     </td>
                     {/* Atualizado */}
