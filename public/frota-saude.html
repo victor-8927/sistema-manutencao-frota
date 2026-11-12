@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GeloManaus — Manutenção Preventiva</title>
+<style>
+:root {
+  --bg:#0d0f1a;--bg2:#141720;--bg3:#1c2030;--bg4:#232840;
+  --border:#2a2f4a;--border2:#353c60;
+  --text:#e2e4f0;--muted:#7880a0;--muted2:#9ba3c0;
+  --ok:#22c55e;--warn:#f59e0b;--crit:#ef4444;--info:#3b82f6;--purple:#a855f7;
+  --accent:#2563eb;--accent2:#1d4ed8;
+  --orange:#f97316;
+  --radius:12px;--radius2:8px;--gap:16px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ===== LAYOUT ===== */
+.app{display:flex;flex-direction:column;min-height:100vh;}
+
+/* ===== TOP BAR ===== */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
+.topbar-logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.topbar-logo-icon{font-size:22px;}
+.topbar-logo-text{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.02em;}
+.topbar-logo-sub{font-size:11px;color:var(--muted);font-weight:400;}
+.topbar-spacer{flex:1;}
+.topbar-sync{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.topbar-sync-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ===== NAV TABS ===== */
+.nav{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;scrollbar-width:none;padding:0 20px;}
+.nav::-webkit-scrollbar{display:none;}
+.nav-tab{padding:12px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px;user-select:none;}
+.nav-tab:hover{color:var(--muted2);}
+.nav-tab.active{color:var(--text);border-bottom-color:var(--accent);}
+.nav-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--crit);color:#fff;line-height:1.2;}
+.nav-badge-warn{background:var(--warn);color:#000;}
+.nav-badge-ok{background:var(--ok);color:#000;}
+
+/* ===== MAIN CONTENT ===== */
+.main{flex:1;padding:var(--gap);max-width:1280px;margin:0 auto;width:100%;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ===== STAT ROW ===== */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:var(--gap);}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:border-color .15s;}
+.stat:hover{border-color:var(--border2);}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.stat-val{font-size:30px;font-weight:900;line-height:1;letter-spacing:-.03em;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:5px;}
+.sc{color:var(--crit)!important;} .sw{color:var(--warn)!important;} .so{color:var(--ok)!important;} .si{color:var(--info)!important;} .sp{color:var(--purple)!important;}
+
+/* ===== FILTER BAR ===== */
+.filter-bar{display:flex;gap:8px;margin-bottom:var(--gap);flex-wrap:wrap;align-items:center;}
+.filter-btn{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);transition:all .15s;user-select:none;}
+.filter-btn:hover{border-color:var(--border2);color:var(--text);}
+.filter-btn.active{background:var(--accent);border-color:var(--accent2);color:#fff;}
+.filter-btn.f-crit.active{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:var(--crit);}
+.filter-btn.f-warn.active{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.5);color:var(--warn);}
+.filter-btn.f-ok.active{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4);color:var(--ok);}
+.search-input{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;width:200px;transition:border-color .15s;}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--muted);}
+.filter-spacer{flex:1;}
+
+/* ===== VEHICLE GRID ===== */
+.veh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:var(--gap);}
+
+/* ===== VEHICLE CARD ===== */
+.veh-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s,transform .15s;cursor:pointer;}
+.veh-card:hover{border-color:var(--border2);transform:translateY(-1px);}
+.veh-card.card-crit{border-left:3px solid var(--crit);}
+.veh-card.card-warn{border-left:3px solid var(--warn);}
+.veh-card.card-ok{border-left:3px solid var(--ok);}
+.veh-card.card-info{border-left:3px solid var(--info);}
+.veh-card.card-purple{border-left:3px solid var(--purple);}
+
+.vc-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
+.vc-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+.badge-vencido{background:rgba(239,68,68,.25);color:var(--crit);border:1px solid rgba(239,68,68,.4);}
+.badge-urgente{background:rgba(239,68,68,.2);color:#ff7676;border:1px solid rgba(239,68,68,.3);}
+.badge-proximo{background:rgba(245,158,11,.18);color:var(--warn);border:1px solid rgba(245,158,11,.3);}
+.badge-ok{background:rgba(34,197,94,.12);color:var(--ok);border:1px solid rgba(34,197,94,.22);}
+.badge-hor{background:rgba(59,130,246,.18);color:var(--info);border:1px solid rgba(59,130,246,.28);}
+.badge-nd{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.25);}
+
+.vc-name{font-size:15px;font-weight:800;}
+.vc-plate{font-size:11px;color:var(--muted);font-family:monospace;background:var(--bg3);padding:2px 6px;border-radius:4px;}
+.vc-model{font-size:11px;color:var(--muted2);margin-left:auto;text-align:right;max-width:140px;line-height:1.3;}
+
+.vc-body{padding:12px 16px;}
+.vc-km-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px;}
+.vc-km-row strong{color:var(--text);}
+.vc-bar-bg{height:7px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.vc-bar-fill{height:100%;border-radius:4px;transition:width .4s;}
+.bar-crit{background:linear-gradient(90deg,#ef4444,#ff6b6b);}
+.bar-warn{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.bar-ok{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.bar-full{background:var(--crit);}
+.vc-restam{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.vc-restam strong{font-size:13px;}
+
+.vc-services{display:flex;flex-direction:column;gap:4px;}
+.svc-item{display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--bg3);border-radius:6px;font-size:11px;}
+.svc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dot-crit{background:var(--crit);} .dot-warn{background:var(--warn);} .dot-ok{background:var(--ok);} .dot-info{background:var(--info);}
+.svc-name{flex:1;color:var(--muted2);}
+.svc-status{font-size:11px;font-weight:700;}
+.s-crit{color:var(--crit);} .s-warn{color:var(--warn);} .s-ok{color:var(--ok);} .s-info{color:var(--info);}
+.svc-more{font-size:11px;color:var(--muted);padding:3px 8px;cursor:pointer;text-decoration:underline;}
+
+.vc-foot{padding:8px 16px 10px;display:flex;align-items:center;justify-content:space-between;}
+.vc-last{font-size:11px;color:var(--muted);}
+.vc-btn{font-size:11px;font-weight:600;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;}
+.vc-btn:hover{background:var(--bg3);color:var(--text);}
+
+/* ===== SECTION TITLE ===== */
+.sec-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:4px 0 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.sec-count{font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--bg3);color:var(--muted2);}
+
+/* ===== MODAL ===== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow);}
+.modal-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;position:sticky;top:0;background:var(--bg2);z-index:1;}
+.modal-title-wrap{flex:1;}
+.modal-title{font-size:18px;font-weight:800;}
+.modal-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.modal-close{font-size:20px;cursor:pointer;color:var(--muted);padding:0 4px;line-height:1;background:none;border:none;color:var(--muted);}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:20px 24px;}
+
+.detail-row{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
+.detail-box{flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;}
+.detail-box-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.detail-box-val{font-size:16px;font-weight:700;}
+.detail-box-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.modal-svc-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;}
+.modal-svc-table th{padding:7px 10px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:600;}
+.modal-svc-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.modal-svc-table tr:last-child td{border-bottom:none;}
+.modal-svc-table tr:hover td{background:var(--bg3);}
+.td-name{font-weight:600;color:var(--text);}
+.td-int{color:var(--muted2);}
+.td-status{font-weight:700;}
+
+/* ===== PAGE: AGENDA ===== */
+.agenda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+.agenda-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;gap:12px;align-items:flex-start;}
+.agenda-week{width:48px;height:48px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;}
+.agenda-week-crit{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.3);color:var(--crit);}
+.agenda-week-warn{background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.28);color:var(--warn);}
+.agenda-week-num{font-size:18px;line-height:1;}
+.agenda-week-label{font-size:9px;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.agenda-info{flex:1;}
+.agenda-veh{font-size:14px;font-weight:700;}
+.agenda-svc{font-size:12px;color:var(--muted2);margin-top:2px;}
+.agenda-km{font-size:11px;color:var(--muted);margin-top:5px;}
+
+/* ===== PAGE: CATÁLOGO ===== */
+.catalogo-tabs{display:flex;gap:8px;margin-bottom:var(--gap);flex-wrap:wrap;}
+.cat-tab{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);transition:all .15s;}
+.cat-tab.active{background:var(--bg4);border-color:var(--border2);color:var(--text);}
+.cat-panel{display:none;}
+.cat-panel.active{display:block;}
+.cat-table{width:100%;border-collapse:collapse;font-size:12px;}
+.cat-table th{padding:8px 12px;text-align:left;background:var(--bg3);font-size:10px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);}
+.cat-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.cat-table tr:hover td{background:var(--bg3);}
+.cat-table tr:last-child td{border-bottom:none;}
+.td-aplica{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;}
+.aplica-y{background:rgba(34,197,94,.12);color:var(--ok);}
+.aplica-n{background:var(--bg4);color:var(--muted);}
+
+/* ===== PAGE: RESUMO ===== */
+.resumo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:var(--gap);}
+.resumo-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.resumo-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.resumo-list{display:flex;flex-direction:column;gap:6px;}
+.resumo-item{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);}
+.resumo-item:last-child{border-bottom:none;}
+.resumo-label{color:var(--muted2);}
+.resumo-val{font-weight:700;}
+
+/* ===== LOADING ===== */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;gap:12px;color:var(--muted);}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:700px){
+  .stat-row{grid-template-columns:repeat(2,1fr);}
+  .veh-grid{grid-template-columns:1fr;}
+  .agenda-grid{grid-template-columns:1fr;}
+  .main{padding:10px;}
+  .topbar{padding:0 12px;}
+}
+@media(max-width:450px){
+  .stat-row{grid-template-columns:repeat(2,1fr);}
+  .stat-val{font-size:24px;}
+}
+
+/* ===== HORÍMETRO BADGE ===== */
+.hor-info{padding:10px 14px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;font-size:11px;color:var(--info);line-height:1.6;margin-bottom:8px;}
+
+/* ===== TOAST ===== */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--text);z-index:300;transform:translateY(80px);opacity:0;transition:all .3s;max-width:320px;box-shadow:var(--shadow);}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <span class="topbar-logo">
+    <span class="topbar-logo-icon">🧊</span>
+    <div>
+      <div class="topbar-logo-text">GeloManaus</div>
+      <div class="topbar-logo-sub">Manutenção Preventiva</div>
+    </div>
+  </span>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-sync" id="syncStatus">
+    <span class="topbar-sync-dot"></span>
+    <span id="syncLabel">Carregando…</span>
+  </div>
+</div>
+
+<!-- NAV TABS -->
+<div class="nav">
+  <div class="nav-tab active" data-page="frota" onclick="showPage('frota',this)">🚛 Frota <span class="nav-badge" id="nb-urg">?</span></div>
+  <div class="nav-tab" data-page="agenda" onclick="showPage('agenda',this)">📅 Agenda</div>
+  <div class="nav-tab" data-page="catalogo" onclick="showPage('catalogo',this)">📋 Catálogo</div>
+  <div class="nav-tab" data-page="resumo" onclick="showPage('resumo',this)">📊 Resumo</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ===== PAGE: FROTA ===== -->
+  <div class="page active" id="page-frota">
+    <div id="loadingState" class="loading"><div class="spinner"></div><span>Buscando dados do Supabase…</span></div>
+    <div id="frotaContent" style="display:none;">
+      <div class="stat-row" id="statRow"></div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all',this)">Todos</button>
+        <button class="filter-btn f-crit" onclick="setFilter('crit',this)">🚨 Urgentes</button>
+        <button class="filter-btn f-warn" onclick="setFilter('warn',this)">⚠️ Próximos</button>
+        <button class="filter-btn f-ok" onclick="setFilter('ok',this)">✅ Em dia</button>
+        <button class="filter-btn" onclick="setFilter('hor',this)">🕐 Horímetro</button>
+        <div class="filter-spacer"></div>
+        <input class="search-input" placeholder="🔍 Buscar veículo…" oninput="filterSearch(this.value)">
+      </div>
+      <div id="sectionsContainer"></div>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: AGENDA ===== -->
+  <div class="page" id="page-agenda">
+    <div class="sec-title">📅 Próximas Trocas — Ordenadas por Urgência</div>
+    <div class="agenda-grid" id="agendaGrid"></div>
+  </div>
+
+  <!-- ===== PAGE: CATÁLOGO ===== -->
+  <div class="page" id="page-catalogo">
+    <div class="sec-title">📋 Catálogo de Serviços por Modelo</div>
+    <div class="catalogo-tabs" id="catalogoTabs"></div>
+    <div id="catalogoContent"></div>
+  </div>
+
+  <!-- ===== PAGE: RESUMO ===== -->
+  <div class="page" id="page-resumo">
+    <div class="sec-title">📊 Resumo da Frota</div>
+    <div class="resumo-grid" id="resumoGrid"></div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-head">
+      <div class="modal-title-wrap">
+        <div class="modal-title" id="mTitle"></div>
+        <div class="modal-sub" id="mSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== SUPABASE CONFIG =====
+const SB_URL = 'https://wziprddrflgpzankofad.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6aXByZGRyZmxncHphbmtvZmFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NDMyNjMsImV4cCI6MjA5NDExOTI2M30.hWrdRYH6M6Voii8uo3MmJB8BKNZOOWRhjls7DFg4pcs';
+
+// ===== CATÁLOGO DE SERVIÇOS =====
+// Fallback hardcoded — sobrescrito pelo banco em fetchCatalog()
+let CATALOGO = {
+  'VW 13.190': [
+    {svc:'Óleo motor + filtro',km:10000,mes:6,preco:500,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:280,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:160,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:3,preco:220,aplica:1},
+    {svc:'Freios',km:20000,mes:6,preco:700,aplica:1},
+    {svc:'Alinhamento + rodízio',km:20000,mes:6,preco:410,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:670,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:950,aplica:1},
+    {svc:'Óleo câmbio',km:60000,mes:24,preco:480,aplica:1},
+    {svc:'Óleo diferencial',km:60000,mes:24,preco:550,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:12,preco:600,aplica:1},
+    {svc:'Elétrica',km:30000,mes:12,preco:420,aplica:1},
+    {svc:'Ar-condicionado',km:20000,mes:12,preco:540,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:100,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'VW 24.280': [
+    {svc:'Óleo motor + filtro',km:10000,mes:6,preco:630,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:310,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:195,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:3,preco:250,aplica:1},
+    {svc:'Freios',km:20000,mes:6,preco:950,aplica:1},
+    {svc:'Alinhamento + rodízio',km:20000,mes:6,preco:470,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:750,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:1200,aplica:1},
+    {svc:'Óleo câmbio',km:60000,mes:24,preco:580,aplica:1},
+    {svc:'Óleo diferencial',km:60000,mes:24,preco:640,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:12,preco:720,aplica:1},
+    {svc:'Elétrica',km:30000,mes:12,preco:480,aplica:1},
+    {svc:'Ar-condicionado',km:20000,mes:12,preco:570,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:120,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'VW 31.320': [
+    {svc:'Óleo motor + filtro (600h)',km:0,mes:6,preco:750,aplica:1,hor:true},
+    {svc:'Filtros combustível',km:0,mes:12,preco:390,aplica:1},
+    {svc:'Filtro de ar',km:0,mes:12,preco:220,aplica:1},
+    {svc:'Lubrificação geral',km:0,mes:3,preco:280,aplica:1},
+    {svc:'Freios',km:0,mes:6,preco:1150,aplica:1},
+    {svc:'Alinhamento + rodízio',km:0,mes:6,preco:530,aplica:1},
+    {svc:'Sistema de ar',km:0,mes:12,preco:880,aplica:1},
+    {svc:'Suspensão e direção',km:0,mes:12,preco:1450,aplica:1},
+    {svc:'ARLA 32 (AdBlue)',km:0,mes:0,preco:120,aplica:1,nota:'Tanque 60L — verificar nível'},
+    {svc:'Checklist mensal',km:0,mes:1,preco:150,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'MB Accelo 815': [
+    {svc:'Óleo motor + filtro',km:10000,mes:6,preco:450,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:210,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:145,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:3,preco:260,aplica:1},
+    {svc:'Freios',km:20000,mes:6,preco:700,aplica:1},
+    {svc:'Alinhamento + rodízio',km:20000,mes:6,preco:470,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:690,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:960,aplica:1},
+    {svc:'Embreagem',km:40000,mes:12,preco:490,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:12,preco:650,aplica:1},
+    {svc:'Elétrica',km:30000,mes:12,preco:480,aplica:1},
+    {svc:'Ar-condicionado',km:20000,mes:12,preco:570,aplica:1},
+    {svc:'Óleo câmbio G60-6',km:60000,mes:24,preco:450,aplica:1},
+    {svc:'Óleo diferencial',km:60000,mes:24,preco:580,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:110,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'MB Accelo 915': [
+    {svc:'Óleo motor + filtro (OM904LA)',km:10000,mes:6,preco:480,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:220,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:155,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:3,preco:270,aplica:1},
+    {svc:'Freios',km:20000,mes:6,preco:720,aplica:1},
+    {svc:'Alinhamento + rodízio',km:20000,mes:6,preco:490,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:710,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:980,aplica:1},
+    {svc:'Embreagem hidráulica MF362HD',km:40000,mes:12,preco:520,aplica:1},
+    {svc:'Arrefecimento (27L)',km:40000,mes:12,preco:670,aplica:1},
+    {svc:'Elétrica',km:30000,mes:12,preco:490,aplica:1},
+    {svc:'Óleo câmbio G60-6 (9L)',km:60000,mes:24,preco:460,aplica:1},
+    {svc:'Óleo diferencial HL5/60 (11L)',km:60000,mes:24,preco:600,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:115,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'MB L-1620': [
+    {svc:'Óleo motor + filtro (OM366LA)',km:10000,mes:6,preco:650,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:290,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:180,aplica:1},
+    {svc:'Lubrificação geral (3 eixos)',km:10000,mes:3,preco:240,aplica:1},
+    {svc:'Freios (3 eixos trucado)',km:20000,mes:6,preco:900,aplica:1},
+    {svc:'Alinhamento + rodízio',km:20000,mes:6,preco:460,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:775,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:1160,aplica:1},
+    {svc:'Óleo câmbio G85-6',km:60000,mes:24,preco:520,aplica:1},
+    {svc:'Óleo diferencial (eixo motriz+reboque)',km:60000,mes:24,preco:680,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:12,preco:700,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:120,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'MB Axor 1933': [
+    {svc:'Óleo motor + filtro (OM926LA)',km:10000,mes:6,preco:820,aplica:1},
+    {svc:'Filtros combustível BlueTec5',km:20000,mes:12,preco:350,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:210,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:3,preco:290,aplica:1},
+    {svc:'Freios',km:20000,mes:6,preco:1100,aplica:1},
+    {svc:'Alinhamento',km:20000,mes:6,preco:520,aplica:1},
+    {svc:'Sistema de ar',km:40000,mes:12,preco:920,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:1500,aplica:1},
+    {svc:'AdBlue/ARLA 32 (95L)',km:0,mes:0,preco:190,aplica:1,nota:'Tanque 95L — verificar nível'},
+    {svc:'Óleo câmbio G211-16 (16v)',km:60000,mes:24,preco:680,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:12,preco:800,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:130,aplica:1},
+    {svc:'Tacógrafo INMETRO',km:0,mes:12,preco:400,aplica:1},
+  ],
+  'VW Saveiro': [
+    {svc:'Óleo motor + filtro',km:5000,mes:6,preco:340,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:180,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:120,aplica:1},
+    {svc:'Freios',km:20000,mes:12,preco:630,aplica:1},
+    {svc:'Alinhamento + rodízio',km:10000,mes:6,preco:240,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:600,aplica:1},
+    {svc:'Embreagem',km:40000,mes:24,preco:300,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:24,preco:350,aplica:1},
+    {svc:'Óleo câmbio',km:60000,mes:36,preco:450,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:80,aplica:1},
+  ],
+  'Hyundai HR': [
+    {svc:'Óleo motor + filtro',km:7000,mes:6,preco:550,aplica:1},
+    {svc:'Filtros combustível',km:20000,mes:12,preco:320,aplica:1},
+    {svc:'Filtro de ar',km:20000,mes:12,preco:170,aplica:1},
+    {svc:'Freios',km:20000,mes:12,preco:750,aplica:1},
+    {svc:'Alinhamento + rodízio',km:10000,mes:6,preco:310,aplica:1},
+    {svc:'Lubrificação geral',km:10000,mes:6,preco:200,aplica:1},
+    {svc:'Suspensão e direção',km:30000,mes:12,preco:800,aplica:1},
+    {svc:'Embreagem',km:40000,mes:24,preco:400,aplica:1},
+    {svc:'Arrefecimento',km:40000,mes:24,preco:500,aplica:1},
+    {svc:'Óleo câmbio',km:60000,mes:36,preco:530,aplica:1},
+    {svc:'Checklist mensal',km:0,mes:1,preco:90,aplica:1},
+  ],
+};
+
+// ===== DADOS ESTÁTICOS DA FROTA (complemento aos dados do Supabase) =====
+const FROTA_META = {
+  'VDA 01':  {placa:'NOU-8H02',modelo:'VW Constellation 13.190'},
+  'VDA 02':  {placa:'NOU-8572',modelo:'VW Constellation 13.190'},
+  'VDA 03':  {placa:'NOU-8492',modelo:'VW Constellation 13.190'},
+  'VDA 20':  {placa:'JWU-7775',modelo:'MB Accelo 915'},
+  'VDA 46':  {placa:'NOM-5413',modelo:'MB L-1620'},
+  'VDA 47':  {placa:'NOM-5373',modelo:'MB L-1620'},
+  'VDA 59 CAVALO':{placa:'NOJ-4559',modelo:'MB Axor 1933'},
+  'VDA 66':  {placa:'NOY-8169',modelo:'MB L-1620'},
+  'VDA 70':  {placa:'NOU-8372',modelo:'VW Constellation 13.190'},
+  'VDA 80':  {placa:'OAL-8173',modelo:'VW Constellation 13.190'},
+  'VDA 81':  {placa:'OAL-8193',modelo:'VW Constellation 13.190'},
+  'VDA 90':  {placa:'OAJ-2612',modelo:'VW Constellation 24.280'},
+  'VDA 94':  {placa:'TRX-3E78',modelo:'VW 31.320',usaHorimetro:true,kmOleoLimite:600},
+  'ACELLO':  {placa:'PHJ-3549',modelo:'MB Accelo 815'},
+  'SAVEIRO': {placa:'NOR-8241',modelo:'VW Saveiro'},
+  'VDA RH':  {placa:'PHB-4606',modelo:'Hyundai HR'},
+  'MOBI':    {placa:'TZA-8B93',modelo:'Fiat Mobi',semCatalogo:true},
+};
+
+// MODEL KEY MAP
+const MODEL_KEY = {
+  'VW Constellation 13.190':'VW 13.190',
+  'VW Constellation 24.280':'VW 24.280',
+  'VW 31.320':'VW 31.320',
+  'MB Accelo 815':'MB Accelo 815',
+  'MB Accelo 915':'MB Accelo 915',
+  'MB L-1620':'MB L-1620',
+  'MB Axor 1933':'MB Axor 1933',
+  'VW Saveiro':'VW Saveiro',
+  'Hyundai HR':'Hyundai HR',
+};
+
+// ===== STATE =====
+let allVehicles = [];
+let currentFilter = 'all';
+let currentSearch = '';
+
+// ===== HELPERS =====
+function fmt(n){return n!=null?Number(n).toLocaleString('pt-BR'):'—';}
+function fmtKm(n){return n!=null?Number(n).toLocaleString('pt-BR')+' km':'—';}
+function fmtR(n){return n!=null?'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0}):'—';}
+function pct(atual,proxima,intervalo){
+  if(!proxima||!intervalo) return null;
+  const restam=proxima-atual;
+  return Math.max(0,Math.min(100,Math.round((restam/intervalo)*100)));
+}
+function statusFromPct(p,vencido){
+  if(vencido) return 'vencido';
+  if(p==null) return 'ok';
+  if(p<=15) return 'urgente';
+  if(p<=30) return 'proximo';
+  return 'ok';
+}
+
+function getStatusInfo(v){
+  if(v.usa_horimetro) return {status:'hor',label:'🕐 HORÍMETRO',badgeClass:'badge-hor',cardClass:'card-info',barClass:'bar-ok',priority:4};
+  if(v.semCatalogo)   return {status:'nd', label:'⚠ SEM CATÁLOGO',badgeClass:'badge-nd',cardClass:'card-purple',barClass:'bar-ok',priority:5};
+  const vencido = v.km_atual>v.km_proxima_troca;
+  const p = pct(v.km_atual,v.km_proxima_troca,v.km_oleo_limite);
+  const s = statusFromPct(p,vencido);
+  if(s==='vencido') return {status:'vencido',label:'🚨 VENCIDO',badgeClass:'badge-vencido',cardClass:'card-crit',barClass:'bar-full',priority:0,pct:100};
+  if(s==='urgente') return {status:'urgente',label:'🚨 URGENTE',badgeClass:'badge-urgente',cardClass:'card-crit',barClass:'bar-crit',priority:1,pct:p};
+  if(s==='proximo') return {status:'proximo',label:'⚠️ PRÓXIMO',badgeClass:'badge-proximo',cardClass:'card-warn',barClass:'bar-warn',priority:2,pct:p};
+  return {status:'ok',label:'✅ EM DIA',badgeClass:'badge-ok',cardClass:'card-ok',barClass:'bar-ok',priority:3,pct:p};
+}
+
+function toast(msg,dur=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ===== FETCH SUPABASE =====
+async function fetchFleet(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/fleet_controle_oleo?order=veiculo_id.asc`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Accept':'application/json'}
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const rows=await res.json();
+    return rows;
+  }catch(e){
+    console.error(e);
+    return null;
+  }
+}
+
+// ===== FETCH CATALOG FROM SUPABASE =====
+async function fetchCatalog(){
+  try{
+    const res=await fetch(
+      `${SB_URL}/rest/v1/fleet_preventiva_catalogo?ativo=eq.true&order=modelo.asc,servico.asc`,
+      {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Accept':'application/json'}}
+    );
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const rows=await res.json();
+    // Build CATALOGO object grouped by modelo
+    const cat={};
+    for(const r of rows){
+      if(!cat[r.modelo]) cat[r.modelo]=[];
+      cat[r.modelo].push({
+        svc:   r.servico,
+        km:    r.km_intervalo||0,
+        mes:   r.mes_intervalo||0,
+        preco: r.preco||0,
+        aplica:1,
+        hor:   r.usa_horimetro||false,
+        nota:  r.nota||null,
+      });
+    }
+    return cat;
+  }catch(e){
+    console.error('fetchCatalog:',e);
+    return null;
+  }
+}
+
+// ===== BUILD VEHICLES =====
+function buildVehicles(rows){
+  const vehs=[];
+  for(const [name,meta] of Object.entries(FROTA_META)){
+    const row=rows?rows.find(r=>(r.veiculo_id||'').toUpperCase()===name.toUpperCase()):null;
+    const v={
+      name,
+      placa:meta.placa,
+      modelo:meta.modelo,
+      modeloKey:MODEL_KEY[meta.modelo]||null,
+      usa_horimetro:meta.usaHorimetro||false,
+      semCatalogo:meta.semCatalogo||false,
+      km_atual:row?.km_atual||null,
+      km_proxima_troca:row?.km_proxima_troca||null,
+      km_oleo_limite:row?.km_oleo_limite||meta.kmOleoLimite||10000,
+      ultima_troca_data:row?.ultima_troca_data||null,
+      ultima_troca_km:row?.ultima_troca_km||null,
+      horimetro:row?.horimetro||null,
+    };
+    const si=getStatusInfo(v);
+    v.statusInfo=si;
+    vehs.push(v);
+  }
+  vehs.sort((a,b)=>a.statusInfo.priority-b.statusInfo.priority||(a.statusInfo.pct??50)-(b.statusInfo.pct??50));
+  return vehs;
+}
+
+// ===== RENDER STAT ROW =====
+function renderStats(vehs){
+  const vencido=vehs.filter(v=>v.statusInfo.status==='vencido').length;
+  const urgente=vehs.filter(v=>v.statusInfo.status==='urgente').length;
+  const proximo=vehs.filter(v=>v.statusInfo.status==='proximo').length;
+  const ok=vehs.filter(v=>v.statusInfo.status==='ok').length;
+  const total=vehs.length;
+  const urg=vencido+urgente;
+  document.getElementById('nb-urg').textContent=urg;
+  document.getElementById('statRow').innerHTML=`
+    <div class="stat" onclick="setFilterBtn('crit')">
+      <div class="stat-label">🚨 Urgentes</div>
+      <div class="stat-val sc">${urg}</div>
+      <div class="stat-sub">${vencido} vencido${vencido!==1?'s':''} · ${urgente} crítico${urgente!==1?'s':''}</div>
+    </div>
+    <div class="stat" onclick="setFilterBtn('warn')">
+      <div class="stat-label">⚠️ Próximos</div>
+      <div class="stat-val sw">${proximo}</div>
+      <div class="stat-sub">Agendar em breve</div>
+    </div>
+    <div class="stat" onclick="setFilterBtn('ok')">
+      <div class="stat-label">✅ Em dia</div>
+      <div class="stat-val so">${ok}</div>
+      <div class="stat-sub">> 30% restante</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">🚛 Frota</div>
+      <div class="stat-val si">${total}</div>
+      <div class="stat-sub">Veículos ativos</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">📅 Próxima</div>
+      <div class="stat-val" style="font-size:14px;padding-top:4px;">${getNextService(vehs)}</div>
+      <div class="stat-sub">1ª a vencer</div>
+    </div>
+  `;
+}
+
+function getNextService(vehs){
+  const v=vehs.find(x=>x.statusInfo.status!=='hor'&&x.statusInfo.status!=='nd'&&x.km_proxima_troca&&x.km_atual);
+  if(!v) return '—';
+  const r=v.km_proxima_troca-v.km_atual;
+  return r<=0?'<span class="sc">VENCIDO</span>':`<span class="sc">${v.name}</span> ${fmt(Math.abs(r))} km`;
+}
+
+// ===== RENDER CARDS =====
+function renderSections(vehs){
+  let filtered=vehs;
+  if(currentFilter==='crit') filtered=vehs.filter(v=>v.statusInfo.status==='vencido'||v.statusInfo.status==='urgente');
+  else if(currentFilter==='warn') filtered=vehs.filter(v=>v.statusInfo.status==='proximo');
+  else if(currentFilter==='ok') filtered=vehs.filter(v=>v.statusInfo.status==='ok');
+  else if(currentFilter==='hor') filtered=vehs.filter(v=>v.statusInfo.status==='hor'||v.statusInfo.status==='nd');
+  if(currentSearch) filtered=filtered.filter(v=>v.name.toLowerCase().includes(currentSearch)||v.placa.toLowerCase().includes(currentSearch)||v.modelo.toLowerCase().includes(currentSearch));
+
+  const sections=[
+    {key:'vencido',title:'🚨 VENCIDO — Troca Atrasada',items:filtered.filter(v=>v.statusInfo.status==='vencido')},
+    {key:'urgente',title:'🚨 URGENTE — Troca Imediata',items:filtered.filter(v=>v.statusInfo.status==='urgente')},
+    {key:'proximo',title:'⚠️ PRÓXIMO — Agendar em Breve',items:filtered.filter(v=>v.statusInfo.status==='proximo')},
+    {key:'ok',title:'✅ EM DIA',items:filtered.filter(v=>v.statusInfo.status==='ok')},
+    {key:'hor',title:'🕐 HORÍMETRO',items:filtered.filter(v=>v.statusInfo.status==='hor')},
+    {key:'nd',title:'⚠ SEM CATÁLOGO',items:filtered.filter(v=>v.statusInfo.status==='nd')},
+  ].filter(s=>s.items.length>0);
+
+  if(sections.length===0){
+    document.getElementById('sectionsContainer').innerHTML=`<div class="loading" style="padding:40px;"><span style="color:var(--muted)">Nenhum veículo encontrado.</span></div>`;
+    return;
+  }
+
+  document.getElementById('sectionsContainer').innerHTML=sections.map(sec=>`
+    <div class="sec-title">${sec.title} <span class="sec-count">${sec.items.length}</span></div>
+    <div class="veh-grid" style="margin-bottom:24px;">${sec.items.map(renderCard).join('')}</div>
+  `).join('');
+}
+
+function renderCard(v){
+  const si=v.statusInfo;
+  const restam=v.km_proxima_troca&&v.km_atual?v.km_proxima_troca-v.km_atual:null;
+  const p=si.pct??null;
+  const fillW=p!=null?Math.min(100,p)+'%':'0%';
+  const barClass=restam<0?'bar-full':si.barClass;
+
+  let barRow='';
+  if(!v.usa_horimetro&&!v.semCatalogo&&v.km_proxima_troca){
+    const startKm=v.km_proxima_troca-v.km_oleo_limite;
+    barRow=`
+      <div class="vc-km-row"><span>KM atual: <strong>${fmtKm(v.km_atual)}</strong></span><span>Próxima: <strong>${fmtKm(v.km_proxima_troca)}</strong></span></div>
+      <div class="vc-bar-bg"><div class="vc-bar-fill ${barClass}" style="width:${fillW};"></div></div>
+      <div class="vc-restam">${restam<0?`<strong class="sc">VENCIDA ${fmt(Math.abs(restam))} km</strong>`:`<strong class="${p<=15?'sc':p<=30?'sw':'so'}">${fmt(restam)} km restantes</strong>`} · Intervalo: ${fmt(v.km_oleo_limite)} km</div>
+    `;
+  }
+
+  const svcs=getTopServices(v);
+  const svcHTML=svcs.map(s=>`
+    <div class="svc-item">
+      <div class="svc-dot dot-${s.urgency}"></div>
+      <span class="svc-name">${s.name}</span>
+      <span class="svc-status s-${s.urgency}">${s.label}</span>
+    </div>
+  `).join('');
+
+  let horInfo='';
+  if(v.usa_horimetro){
+    horInfo=`<div class="hor-info">⏱ Controle por horímetro — intervalo a cada <strong>600h</strong> de operação<br>Motor: MAN D0836LF17 · SCR/AdBlue · Tanque ARLA 32: 60L<br>KM odômetro atual: ${fmtKm(v.km_atual)}</div>`;
+  }
+  if(v.semCatalogo){
+    horInfo=`<div class="hor-info" style="border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.06);color:var(--purple);">⚠ Modelo <strong>${v.modelo}</strong> sem catálogo de serviços — verificar manual do fabricante</div>`;
+  }
+
+  return `
+    <div class="veh-card ${si.cardClass}" onclick="openModal('${v.name}')">
+      <div class="vc-head">
+        <span class="vc-badge ${si.badgeClass}">${si.label}</span>
+        <span class="vc-name">${v.name}</span>
+        <span class="vc-plate">${v.placa}</span>
+        <span class="vc-model">${v.modelo}</span>
+      </div>
+      <div class="vc-body">
+        ${horInfo}
+        ${barRow}
+        <div class="vc-services">${svcHTML}</div>
+      </div>
+      <div class="vc-foot">
+        <span class="vc-last">${v.ultima_troca_data?'Última troca: '+v.ultima_troca_data.substring(0,10):v.ultima_troca_km?'Última troca: '+fmtKm(v.ultima_troca_km):''}</span>
+        <button class="vc-btn" onclick="event.stopPropagation();openModal('${v.name}')">Ver detalhes →</button>
+      </div>
+    </div>
+  `;
+}
+
+function getTopServices(v){
+  if(v.usa_horimetro||v.semCatalogo||!v.modeloKey) return [];
+  const cat=CATALOGO[v.modeloKey]||[];
+  const km=v.km_atual||0;
+  const svcs=[];
+  for(const s of cat.slice(0,5)){
+    if(!s.km) continue;
+    // estimate next based on current km
+    const cyclesCompleted=Math.floor(km/s.km);
+    const nextKm=(cyclesCompleted+1)*s.km;
+    const rem=nextKm-km;
+    const p2=Math.round((rem/s.km)*100);
+    const urg=p2<=15?'crit':p2<=30?'warn':'ok';
+    const lbl=rem<=0?'VENCIDO':`${fmt(rem)} km`;
+    svcs.push({name:s.svc,urgency:urg,label:lbl,rem,p:p2});
+  }
+  // Sort by urgency
+  svcs.sort((a,b)=>a.rem-b.rem);
+  return svcs.slice(0,3);
+}
+
+// ===== MODAL =====
+function openModal(name){
+  const v=allVehicles.find(x=>x.name===name);
+  if(!v) return;
+  document.getElementById('mTitle').textContent=v.name+' — '+v.modelo;
+  document.getElementById('mSub').textContent=v.placa+' · Atualizado 11/11/2026';
+
+  const si=v.statusInfo;
+  const restam=v.km_proxima_troca&&v.km_atual?v.km_proxima_troca-v.km_atual:null;
+
+  let detailBoxes=`
+    <div class="detail-row">
+      <div class="detail-box"><div class="detail-box-label">KM Atual</div><div class="detail-box-val">${fmtKm(v.km_atual)}</div></div>
+      <div class="detail-box"><div class="detail-box-label">Próxima Troca</div><div class="detail-box-val ${si.status==='vencido'?'sc':si.status==='urgente'?'sc':si.status==='proximo'?'sw':''}">${fmtKm(v.km_proxima_troca)}</div></div>
+      <div class="detail-box"><div class="detail-box-label">Restam</div><div class="detail-box-val ${restam<0?'sc':restam<2000?'sc':restam<4000?'sw':'so'}">${restam!=null?(restam<0?'−'+fmt(Math.abs(restam)):fmt(restam))+' km':'—'}</div></div>
+      <div class="detail-box"><div class="detail-box-label">Intervalo Óleo</div><div class="detail-box-val">${fmt(v.km_oleo_limite)} km</div></div>
+    </div>
+  `;
+
+  const catKey=v.modeloKey;
+  const cat=catKey?CATALOGO[catKey]:null;
+  let tableHTML='';
+  if(cat){
+    const km=v.km_atual||0;
+    const rows=cat.map(s=>{
+      let statusHTML='—';
+      if(s.hor||s.nota){
+        statusHTML=`<span style="color:var(--info);">${s.nota||'Ver horímetro'}</span>`;
+      } else if(s.km){
+        const cyclesCompleted=Math.floor(km/s.km);
+        const nextKm=(cyclesCompleted+1)*s.km;
+        const rem=nextKm-km;
+        const p2=Math.round((rem/s.km)*100);
+        const cls=rem<=0?'s-crit':p2<=15?'s-crit':p2<=30?'s-warn':'s-ok';
+        statusHTML=`<span class="${cls}">${rem<=0?'VENCIDO':fmt(rem)+' km'}</span>`;
+      } else if(s.mes){
+        statusHTML=`<span style="color:var(--muted2);">A cada ${s.mes}m</span>`;
+      }
+      return `<tr>
+        <td class="td-name">${s.svc}</td>
+        <td class="td-int">${s.km?fmt(s.km)+' km':'—'}</td>
+        <td class="td-int">${s.mes?s.mes+'m':'—'}</td>
+        <td>${statusHTML}</td>
+        <td style="color:var(--muted2);text-align:right;">${fmtR(s.preco)}</td>
+      </tr>`;
+    }).join('');
+    tableHTML=`
+      <div class="sec-title" style="margin-top:4px;">Lista Completa de Serviços</div>
+      <div style="overflow-x:auto;"><table class="modal-svc-table">
+        <thead><tr><th>Serviço</th><th>Intervalo KM</th><th>Intervalo Meses</th><th>Próximo</th><th style="text-align:right;">Custo Est.</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    `;
+  } else if(v.usa_horimetro){
+    const cat2=CATALOGO['VW 31.320']||[];
+    const rows2=cat2.map(s=>`<tr>
+      <td class="td-name">${s.svc}</td>
+      <td class="td-int">${s.km?fmt(s.km)+' h':'—'}</td>
+      <td class="td-int">${s.mes?s.mes+'m':'—'}</td>
+      <td><span style="color:var(--info);">Ver horímetro</span></td>
+      <td style="color:var(--muted2);text-align:right;">${fmtR(s.preco)}</td>
+    </tr>`).join('');
+    tableHTML=`
+      <div class="hor-info">⏱ Controle por horímetro — intervalo a cada 600h · Motor: MAN D0836LF17 · ARLA 32: 60L</div>
+      <div style="overflow-x:auto;"><table class="modal-svc-table">
+        <thead><tr><th>Serviço</th><th>Intervalo</th><th>Meses</th><th>Status</th><th style="text-align:right;">Custo Est.</th></tr></thead>
+        <tbody>${rows2}</tbody>
+      </table></div>
+    `;
+  } else {
+    tableHTML=`<div class="hor-info" style="color:var(--purple);border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.06);">Sem catálogo de serviços para ${v.modelo}. Consultar manual do fabricante.</div>`;
+  }
+
+  document.getElementById('mBody').innerHTML=detailBoxes+tableHTML;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modalOverlay')||e.type==='click'&&!e.target.closest('.modal')){
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+// ===== FILTERS =====
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderSections(allVehicles);
+}
+function setFilterBtn(f){
+  const btns=document.querySelectorAll('.filter-btn');
+  let targetBtn=null;
+  btns.forEach(b=>{if((f==='crit'&&b.textContent.includes('Urgente'))||(f==='warn'&&b.textContent.includes('Próximo'))||(f==='ok'&&b.textContent.includes('Em dia'))) targetBtn=b;});
+  setFilter(f,targetBtn);
+}
+function filterSearch(val){
+  currentSearch=val.toLowerCase().trim();
+  renderSections(allVehicles);
+}
+
+// ===== PAGES =====
+function showPage(id,tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(tab) tab.classList.add('active');
+  if(id==='agenda') renderAgenda();
+  if(id==='catalogo') renderCatalogo();
+  if(id==='resumo') renderResumo();
+}
+
+// ===== AGENDA =====
+function renderAgenda(){
+  if(!allVehicles.length) return;
+  const items=[];
+  allVehicles.forEach(v=>{
+    if(!v.km_proxima_troca||!v.km_atual) return;
+    const restam=v.km_proxima_troca-v.km_atual;
+    const urgency=restam<0?'crit':v.statusInfo.status==='urgente'?'crit':v.statusInfo.status==='proximo'?'warn':null;
+    if(urgency){
+      items.push({v,restam,urgency});
+    }
+  });
+  items.sort((a,b)=>a.restam-b.restam);
+  if(!items.length){document.getElementById('agendaGrid').innerHTML='<div class="loading"><span>Nenhuma manutenção urgente no momento 🎉</span></div>';return;}
+  document.getElementById('agendaGrid').innerHTML=items.map(({v,restam,urgency})=>{
+    const lbl=restam<0?'VENCIDO':fmt(restam)+' km';
+    const weekCls=urgency==='crit'?'agenda-week-crit':'agenda-week-warn';
+    const icon=restam<0?'🚨':urgency==='crit'?'⚡':'📅';
+    return `
+    <div class="agenda-card" style="cursor:pointer;" onclick="openModal('${v.name}')">
+      <div class="agenda-week ${weekCls}">
+        <div class="agenda-week-num">${icon}</div>
+        <div class="agenda-week-label">${restam<0?'ATRASADO':urgency==='crit'?'URGENTE':'BREVE'}</div>
+      </div>
+      <div class="agenda-info">
+        <div class="agenda-veh">${v.name}</div>
+        <div class="agenda-svc">${v.modelo}</div>
+        <div class="agenda-km" style="color:${urgency==='crit'?'var(--crit)':'var(--warn)'};">${lbl}</div>
+        <div class="agenda-km">KM atual: ${fmtKm(v.km_atual)} · próxima: ${fmtKm(v.km_proxima_troca)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== CATÁLOGO =====
+function renderCatalogo(){
+  const models=Object.keys(CATALOGO);
+  document.getElementById('catalogoTabs').innerHTML=models.map((m,i)=>`
+    <div class="cat-tab ${i===0?'active':''}" onclick="showCatPanel('${m}',this)">${m}</div>
+  `).join('');
+  document.getElementById('catalogoContent').innerHTML=models.map((m,i)=>{
+    const rows=CATALOGO[m].map(s=>`
+      <tr>
+        <td class="td-name">${s.svc}${s.nota?` <span style="color:var(--info);font-size:10px;">(${s.nota})</span>`:''}</td>
+        <td>${s.km?fmt(s.km)+' km':'—'}</td>
+        <td>${s.mes?s.mes+'m':'—'}</td>
+        <td>${fmtR(s.preco)}</td>
+        <td><span class="td-aplica ${s.aplica?'aplica-y':'aplica-n'}">${s.aplica?'SIM':'NÃO'}</span></td>
+      </tr>
+    `).join('');
+    const veiculos=Object.entries(FROTA_META).filter(([,meta])=>(MODEL_KEY[meta.modelo]||'')=== m).map(([n])=>n).join(', ');
+    return `
+    <div class="cat-panel ${i===0?'active':''}" id="cat-${m.replace(/[^a-z0-9]/gi,'_')}">
+      ${veiculos?`<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;">🚛 Veículos: <strong style="color:var(--text);">${veiculos}</strong></div>`:''}
+      <div style="overflow-x:auto;"><table class="cat-table">
+        <thead><tr><th>Serviço</th><th>Intervalo KM</th><th>Intervalo Meses</th><th>Custo Est.</th><th>Aplica</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+}
+
+function showCatPanel(m,tab){
+  document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.cat-panel').forEach(p=>p.classList.remove('active'));
+  if(tab) tab.classList.add('active');
+  const panel=document.getElementById('cat-'+m.replace(/[^a-z0-9]/gi,'_'));
+  if(panel) panel.classList.add('active');
+}
+
+// ===== RESUMO =====
+function renderResumo(){
+  if(!allVehicles.length) return;
+  const total=allVehicles.length;
+  const venc=allVehicles.filter(v=>v.statusInfo.status==='vencido');
+  const urg=allVehicles.filter(v=>v.statusInfo.status==='urgente');
+  const prox=allVehicles.filter(v=>v.statusInfo.status==='proximo');
+  const ok=allVehicles.filter(v=>v.statusInfo.status==='ok');
+  const hor=allVehicles.filter(v=>v.statusInfo.status==='hor');
+  const nd=allVehicles.filter(v=>v.statusInfo.status==='nd');
+  const custoTotal=allVehicles.reduce((acc,v)=>{
+    if(!v.modeloKey) return acc;
+    const cat=CATALOGO[v.modeloKey]||[];
+    return acc+cat.reduce((a,s)=>a+(s.preco||0),0);
+  },0);
+  const custoUrgente=venc.concat(urg).reduce((acc,v)=>{
+    if(!v.modeloKey) return acc;
+    const s=CATALOGO[v.modeloKey]?.find(x=>x.svc.toLowerCase().includes('óleo'));
+    return acc+(s?.preco||500);
+  },0);
+
+  document.getElementById('resumoGrid').innerHTML=`
+    <div class="resumo-card">
+      <div class="resumo-title">Status da Frota</div>
+      <div class="resumo-list">
+        <div class="resumo-item"><span class="resumo-label">🚨 VENCIDO</span><span class="resumo-val sc">${venc.length} veículo${venc.length!==1?'s':''}</span></div>
+        <div class="resumo-item"><span class="resumo-label">🚨 Urgente</span><span class="resumo-val sc">${urg.length} veículo${urg.length!==1?'s':''}</span></div>
+        <div class="resumo-item"><span class="resumo-label">⚠️ Próximo</span><span class="resumo-val sw">${prox.length} veículo${prox.length!==1?'s':''}</span></div>
+        <div class="resumo-item"><span class="resumo-label">✅ Em dia</span><span class="resumo-val so">${ok.length} veículo${ok.length!==1?'s':''}</span></div>
+        <div class="resumo-item"><span class="resumo-label">🕐 Horímetro</span><span class="resumo-val si">${hor.length}</span></div>
+        <div class="resumo-item"><span class="resumo-label">⚠ Sem catálogo</span><span class="resumo-val sp">${nd.length}</span></div>
+        <div class="resumo-item"><span class="resumo-label"><strong>Total</strong></span><span class="resumo-val">${total}</span></div>
+      </div>
+    </div>
+    <div class="resumo-card">
+      <div class="resumo-title">Custo Estimado (ciclo completo)</div>
+      <div class="resumo-list">
+        ${Object.entries(CATALOGO).map(([m,svcs])=>{
+          const tot=svcs.reduce((a,s)=>a+(s.preco||0),0);
+          return `<div class="resumo-item"><span class="resumo-label">${m}</span><span class="resumo-val">${fmtR(tot)}</span></div>`;
+        }).join('')}
+        <div class="resumo-item"><span class="resumo-label"><strong>Total catálogo</strong></span><span class="resumo-val sc">${fmtR(custoTotal)}</span></div>
+      </div>
+    </div>
+    <div class="resumo-card">
+      <div class="resumo-title">Veículos Urgentes</div>
+      <div class="resumo-list">
+        ${venc.concat(urg).map(v=>{
+          const r=v.km_proxima_troca-v.km_atual;
+          return `<div class="resumo-item" style="cursor:pointer;" onclick="showPage('frota',document.querySelector('[data-page=frota]'));openModal('${v.name}')">
+            <span class="resumo-label">${v.name} <span style="font-size:10px;color:var(--muted);">${v.placa}</span></span>
+            <span class="resumo-val sc">${r<0?'−'+fmt(Math.abs(r)):fmt(r)} km</span>
+          </div>`;
+        }).join('')||'<div class="resumo-item"><span class="resumo-label" style="color:var(--ok);">Nenhum veículo urgente 🎉</span></div>'}
+      </div>
+    </div>
+    <div class="resumo-card">
+      <div class="resumo-title">Distribuição por Modelo</div>
+      <div class="resumo-list">
+        ${Object.entries(
+          Object.values(FROTA_META).reduce((acc,m)=>{
+            const k=m.modelo;
+            acc[k]=(acc[k]||0)+1;
+            return acc;
+          },{})
+        ).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`
+          <div class="resumo-item"><span class="resumo-label">${m}</span><span class="resumo-val">${c}</span></div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ===== INIT =====
+async function init(){
+  // Load catalog first so it is ready when vehicles are built
+  const catData=await fetchCatalog();
+  if(catData && Object.keys(catData).length>0){
+    CATALOGO=catData;
+  } else {
+    console.warn('Catálogo não carregado — usando vazio');
+  }
+
+  const rows=await fetchFleet();
+  if(!rows){
+    document.getElementById('syncLabel').textContent='Erro — dados offline';
+    document.querySelector('.topbar-sync-dot').style.background='var(--crit)';
+    // Build with null rows anyway
+    allVehicles=buildVehicles(null);
+  } else {
+    allVehicles=buildVehicles(rows);
+    const now=new Date();
+    document.getElementById('syncLabel').textContent=`Atualizado ${now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+  }
+  document.getElementById('loadingState').style.display='none';
+  document.getElementById('frotaContent').style.display='block';
+  renderStats(allVehicles);
+  renderSections(allVehicles);
+  // Update urgente badge
+  const urgCount=allVehicles.filter(v=>v.statusInfo.status==='vencido'||v.statusInfo.status==='urgente').length;
+  document.getElementById('nb-urg').textContent=urgCount;
+  if(urgCount===0) document.getElementById('nb-urg').style.display='none';
+}
+
+// ESC to close modal
+document.addEventListener('keydown',e=>{if(e.key==='Escape') document.getElementById('modalOverlay').classList.remove('open');});
+
+init();
+</script>
+</body>
+</html>
